@@ -1,0 +1,9 @@
+#Ignore Python Stuff
+__pycache__/
+dateutil/
+
+#Ignore Logs and Test Data
+Group */
+LOG_*.txt
+LOGFACT_*
+todo.txt
