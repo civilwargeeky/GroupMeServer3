@@ -90,7 +90,7 @@ class User():
   def getAddress(self, addressType = None):
     key = 'address'
     try:
-      if type(addressType) == str:
+      if type(addressType) == str and addressType:
         return self.data[key][addressType]
       else:
         return self.data[key]['_main']
@@ -220,7 +220,7 @@ class UserList():
     self.addAlias(userObj, alias)
    
   def addRealName(self, userObj, alias):
-    return addGMName(self, userObj, alias, realName = True)
+    return self.addGMName(userObj, alias, realName = True)
     
   #Expects local user data to be loaded already
   def loadAllUsers(self):
@@ -257,6 +257,8 @@ class UserList():
       return self.IDDict[userIdent]
     except KeyError:
       if not onlyID:
+        userIdent = userIdent.lstrip("@") #Get rid of @tagging (possibly make it search GMNames first if this?)
+        userIdent = userIdent.replace("'s", "") #Get rid of any possessives
         log.user("Searching string for member",userIdent)
         
         realNames = {}
@@ -273,7 +275,7 @@ class UserList():
           #Search through the input string for names, starting with the longest names first to avoid conflicts
           #E.G. If we have "Ian George" and "Ian George 4 Lyfe" we want to get "Ian George 4 Lyfe" first always
           for name in sorted(searchDict, key = len, reverse = True):
-            log.user.low("Testing name:",name)
+            log.user.low("Testing name:",repr(name))
             #Find a match for the name (between word breaks or an at sign) ignoring case
             if re.search(r"\b"+name+r"\b", userIdent, re.IGNORECASE):
               log.user("Found user:", searchDict[name])
@@ -295,6 +297,10 @@ class UserList():
       
   def getUserFromID(self, userIdent):
     return self.getUser(userIdent, onlyID = True)
+    
+  #Right now this just executes the sort command, but in the future it could have sort types like "name", "length", etc
+  def getUsersSorted(self, sortKey):
+    return sorted(self.userList, key = sortKey)
       
   #WEB BASED
   #This updates the data and relations (like position in dicts and such) of a user from the dict returned by a web call

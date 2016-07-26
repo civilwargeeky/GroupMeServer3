@@ -83,12 +83,20 @@ def loadTable(handle):
   
 #Loads tokens from a file
 TOKEN_FILE_NAME = getFileName("my_tokens")
-def getTokenList():
+TOKEN_LIST = []
+#Can be overridden to get new every time
+def getTokenList(override = False):
+  global TOKEN_LIST
+  if TOKEN_LIST and not override:
+    return TOKEN_LIST
+  #Otherwise
   try:
     with open(TOKEN_FILE_NAME) as file:
       toRet = loadTable(file) #Should still close though
       if not toRet:
         raise RuntimeError("NO TOKENS LOADED FROM FILE") from None
+      if not TOKEN_LIST:
+       TOKEN_LIST = toRet
       return toRet
   except FileNotFoundError:
     log.error("COULD NOT LOAD TOKEN FILES, ERRORING")

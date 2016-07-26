@@ -50,7 +50,7 @@ class Server(http.server.HTTPServer):
     log.error("==== ERROR OCCURRED IN SERVER. PRINTING ERROR ====")
     log.error(errorMessage) #Output the message to logging
     
-    sendGroup = makeNamedGroup(99, "23222092")
+    sendGroup = makeNamedGroup(99, "23222092", ("27094908", Files.getTokenList()[0]))
     sendGroup.setBot("3da109b71b8c3363c4b87a7e67")
     
     try:
@@ -169,7 +169,7 @@ def main():
   Groups.Group.overlord = tokenList[1]
   
   #Just things
-  #log.network.debug.disable()
+  log.network.debug.disable()
 
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")

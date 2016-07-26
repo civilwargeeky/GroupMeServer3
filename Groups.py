@@ -10,7 +10,9 @@ import random
 import re
 import time
 
+import Commands
 import Files
+import Jokes
 import Logging as log
 import MsgSearch
 import Network
@@ -163,8 +165,9 @@ class Group():
     
     #This UserList should be empty and just a reference to the object
     #Users should be loaded in postInit once we have gotten user data from internet
-    self.users = Users.UserList(self)
-    self.handler = Network.GroupMeHandler(self)
+    self.users    = Users.UserList(self)
+    self.handler  = Network.GroupMeHandler(self)
+    self.commandBuilder = Commands.CommandBuilder(self)
     
   def init(self):
     self.users.loadAllUsers()
@@ -268,12 +271,77 @@ class Group():
     #Each group will get a "searcher" assigned it that loads all the group's messages and can search through them on command
     MsgSearch.getSearcher(self).appendMessage(message)
     
+    #log.network.debug("Handling message: ", message)
+    log.network("Handling message: ", message) #Really want to see this for now while handling stuff
+    
+    self.buffer = ""
+    
     self._handleMessage(message)
     
+    #Handle user commands
+    commandList = self.commandBuilder.buildCommands(message)
+    commandNum = 0
+    for command in commandList:
+      commandNum += 1
+      if len(commandList) > 1:  
+        self.buffer += str(commandNum) + ". "
+      if command.command == "address":
+        if command.recipientObj:
+          name = command.recipientObj.getName()
+          addressString = (command.specifier.title() + " " if command.specifier else "") + "Address"
+          if command.verb == "set":
+            command.recipientObj.setAddress(command.details, command.specifier)
+            self.buffer += addressString+" Updated:\n" + name + " | " + command.details + "\n"
+          else:
+            address = command.recipientObj.getAddress(command.specifier)
+            if address:
+              self.buffer += addressString+" for "+name+":\n"+address
+            else:
+              self.buffer += name + " has no " + addressString
+        else:
+          self.buffer += "I know you want me to do something with addresses, but I don't know whose! (Yell at Daniel)\n"
+      elif command.command == "addresses":
+        for user in self.users.getUsersSorted(lambda user: user.getName()):
+          baseAddress = user.getAddress()
+          if baseAddress:
+            self.buffer += "Addresses for " + user.getName() + ":\n"
+            self.buffer += "--" + baseAddress + "\n"
+            for modifier in Commands.Command.addressModifiers: #Goes through all possible address types
+              subAddress = user.getAddress(modifier)
+              if subAddress:
+                self.buffer += "--" + modifier.title() + ": " + subAddress + "\n"
+      elif command.command == "joke":
+        if command.specifier == "type":
+          self.buffer += "Joke Types: " + " | ".join((joke + "s") for joke in Jokes.BaseJoke._jokeObjects if joke != "regular") #Join all the joke types in the dictionary
+        else:
+          numJokes = 1
+          if command.specifier == "some":
+            numJokes = random.randint(2,5) #Between 2 and 4
+          elif type(command.specifier) == int:
+            numJokes = min(max(1, command.specifier), 7) #Between 1 and 7
+            
+          if command.jokeHandler == Jokes.joke:
+            for i in range(numJokes):
+              self.buffer += Jokes.joke.getJoke(command.details) + "\n" #Add a joke to the buffer since it is just text. The details is possible category
+          else:
+            for i in range(numJokes):
+              command.jokeHandler.postJoke(self) #Otherwise just post the jokes by themselves
+      elif command.command == "name":
+        if command.recipientObj:
+          self.users.addRealName(command.recipientObj, command.details)
+          self.buffer += "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
+      else:
+        self.buffer += "I'm sorry, " + message.name + " but I'm afraid I can't do that"
+            
+    #When all message handling is done
+    if self.buffer:
+      self.handler.write(self.buffer.rstrip())
+            
     
     
   #This is for things specific to a certain type of group. Like handling events for MainGroups
   #NOTE FOR SUBCLASSES: Subclasses should do super() after their own handling
+  #This stuff is in the parent class so that subclasses can just "return" and stop this processing from happening
   def _handleMessage(self, message):
     if message.isSystem():
       #Possibly split this into the Commands module

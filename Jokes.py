@@ -1,7 +1,7 @@
 #This file handles all the jokes and bat facts and other misceallaneous stuff that goes on in the server.
 
 import xml.etree.ElementTree as xml
-import json, random, html.parser, re
+import copy, json, random, html.parser, re
 
 import Files
 import Logging as log
@@ -16,6 +16,9 @@ class BaseJoke():
   _dictString = "Jokes"
   #Dict of "title": objReference
   _jokeObjects = {}
+  
+  def __repr__(self):
+    return "<Jokes."+str(type(self))+" object with title '"+self.title+"'>"
   
   ### ALL SUBCLASSES OF JOKE MUST CALL super() TO ADD THEM TO THE LIST ###
   def __init__(self, title):
@@ -42,11 +45,11 @@ class BaseJoke():
     return None
     
   #Just handles the switching for tuple/regular
-  def _postJoke(self, group, joke):
+  def _postJoke(self, group, joke, fromPoster = False):
     if type(joke) == tuple:
-      return group.handler.write(*joke)
+      return group.handler.write(*joke, fromPoster = fromPoster)
     else:
-      return group.handler.write(joke, self.getPicture())
+      return group.handler.write(joke, self.getPicture(), fromPoster = fromPoster)
     
   #Posts a joke to the group
   #PRE : group should be the group to post to, *arg is passed to getJoke
@@ -116,8 +119,6 @@ class JokeWebsiteParser(html.parser.HTMLParser):
     if self.careData and self.careAtAll:
       self.joke += data.strip()+"\n"
 
-      
-      
 class StandardJoke(BaseJoke):
   def __init__(self):
     super().__init__("regular")
@@ -166,13 +167,23 @@ class SimpleJoke(BaseJoke):
       #Pick a joke that hasn't been picked recently
       choice = random.choice([i for i in range(len(self.jokes)) if i not in self._chosen])
       self._chosen.append(choice) #Add the joke to the blacklist
-      #If we have gone through at least half of the jokes, start removing jokes from the blacklist
-      if len(self._chosen) > len(self.jokes) // 2:
+      #If we have gone through at least 3/4 of the jokes, start removing jokes from the blacklist
+      if len(self._chosen) > (len(self.jokes) * 3 // 4):
         self._chosen.pop(0) #Will only fire if at least one element in list. No Error.
         
       return self.jokes[choice]
     #If we have no jokes, return the default one
     return self.defaultJoke
+    
+  def postAllJokes(self, group):
+    log.joke("Posting all",self.title," jokes")
+    jokeCopy = copy.copy(self.jokes)
+    random.shuffle(jokeCopy)
+    counter = 0
+    for joke in jokeCopy:
+      counter += int(self._postJoke(group, joke))
+    log.joke("Posted",counter,"/",len(jokeCopy),"jokes")
+    
     
 #SimpleFileJokes are just SimpleJokes that can save their data and load it as json from a file
 class SimpleFileJoke(SimpleJoke):
@@ -196,9 +207,16 @@ class SimpleFileJoke(SimpleJoke):
       self.isLoaded = True
       try: 
         with open(self.fileName) as file:
-          self.jokes = json.load(file)
+          tempJokes = json.load(file)
+          self.jokes = []
+          for joke in tempJokes:
+            if type(joke) == list:
+              self.jokes.append(tuple(joke))
+            else:
+              self.jokes.append(joke)
+              
       except (FileNotFoundError, json.JSONDecodeError):
-        log.file.debug("Joke file read failed")
+        log.file.error("Joke file read failed")
     
   def getJoke(self):
     #First load to see if we have any files to get
@@ -208,6 +226,13 @@ class SimpleFileJoke(SimpleJoke):
     
 #Inherits everything from SimpleJoke, just has an extra method that's added to getJoke
 class SimpleFact(SimpleJoke):
+  def __init__(self, title, defaultJoke = defaultDefaultJoke):
+    super().__init__(title, defaultJoke)
+    #If these are pics instead of facts
+    if title.lower().endswith("pic"):
+      self.setFactString("PICS")
+    
+
   def setFactString(self, string):
     self.factString = string[:4].upper()
 
@@ -332,17 +357,19 @@ class RedditFact(SimpleFileJoke, SimpleFact):
 
 ### Define objects for use ###
 joke          = StandardJoke()
-squirrelFacts = SimpleFact("Squirrel Facts", "Squirrels have big bushy tails!")
+pokemonJokes  = SimpleFileJoke("Pokemon Joke", "More like Relicant-th, amirite?!")
+squirrelFacts = SimpleFact("Squirrel Fact", "Squirrels have big bushy tails!")
 batFacts      = RedditFact("Bat Fact", "batfacts", "Uhh.... Bats have wings! *mumble* I don't get paid enough for this")
 turtleFacts   = RedditFact("Turtle Fact", "TurtleFacts", "There is not a single fact that the internet gave me about turtles")
 birdFacts     = RedditFact("Bird Fact", "BirdFacts", "Not many bird facts have pictures. Huh")
 awwFacts      = RedditFact("Aww Fact","awwducational", "Animals are adorable")
 funFacts      = RedditFact("Fun Fact","HeresAFunFact", "There are lots of fun facts in the world!")
 snekFacts     = RedditFact("Snek Pic", "sneks", "Sneks are cute. Also reddit is stupid", requirePictures = True)
+corgiFacts    = RedditFact("Corgi Pic", "corgi", "Corgis are strong, independent, and don't need no pictures to validate them", requirePictures = True)
+
 
 ### Include filters and name modules
 funFacts.addFactFilter(lambda string: string.replace("[HAFF] ",""))
-snekFacts.setFactString("PICS")
 
 ### Add in text jokes ###
 squirrelFacts.setJokes([
@@ -357,3 +384,16 @@ squirrelFacts.setJokes([
   (" Squirrels don’t dig up all of their buried nuts, which results in more trees! They have accidentally contributed countless trees to our nation’s forests. If you ask me, that’s a pretty great reason to appreciate squirrels.", "http://b50ym1n8ryw31pmkr4671ui1c64.wpengine.netdna-cdn.com/wp-content/blogs.dir/11/files/2015/01/SquirrelTree-620x372.jpg"),
   ("There is no amazing online community to find free squirrel facts like there was for batfacts. Therefore, there are less than 10 facts.", "http://mylolface.com/assets/faces/okay-okay.jpg")
   ])
+  
+  
+  
+### Utility Functions ###
+#The only way this could have a problem is if we had "pokemon facts" and "pokemon jokes" or something like that
+def getJokeType(title):
+  title = title.split(" ", 1)[0].title()
+  for word in ["Joke", "Fact", "Pic"]:
+    try:
+      return BaseJoke._jokeObjects[title+" "+word]
+    except KeyError:
+      pass
+  return None
