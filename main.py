@@ -96,14 +96,13 @@ def updateFiles(initial = False):
         else:
           writeLog("Essential file failed to copy. Erroring")
           raise FileNotFoundError("File "+file+" failed to copy")
-        try:
-          if ".py" in file and (not initial or file != "mainServer.py"): #If its a thing we need to load
-            tempVar = importlib.import_module(file[:-3]) #Get a variable for the module (will load file if not loaded beforehand)(remove .py)
-            importlib.reload(tempVar) #Will reload module if the module was already loaded.
-        except ImportError:
-          writeLog("Failed to import file: ",file)
+          #Now we load after all files are copied
     except FileNotFoundError:
       writeLog("Failed to find file")
+  for file in fileList:
+    if ".py" in file and (not initial or file != "mainServer.py"): #If its a thing we need to load
+      tempVar = importlib.import_module(file[:-3]) #Get a variable for the module (will load file if not loaded beforehand)(remove .py)
+      importlib.reload(tempVar) #Will reload module if the module was already loaded.
   
   writeLog("Attempting to remove waste!")
   shutil.rmtree(tempFolder, ignore_errors=True) #Get rid of waste

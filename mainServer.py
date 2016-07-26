@@ -169,7 +169,8 @@ def main():
   Groups.Group.overlord = tokenList[1]
   
   #Just things
-  log.network.debug.disable()
+  #log.network.debug.disable()
+  log.command.low.enable()
 
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")
@@ -202,7 +203,8 @@ def main():
   
   toriGroup = makeNamedGroup(15, "23317842", put)
   
-  #groupFam  = makeNamedGroup(2, "13972393", put)
+  groupFam  = makeNamedGroup(2, "13972393", put)
+  groupFam.setBot("cfe41d49a83d73874f4aa547b9")
   
   log.info("========== POST-INIT ==========")
   for group in list(Groups.getSortedList()): group.postInit()

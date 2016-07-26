@@ -276,6 +276,9 @@ class Group():
     
     self.buffer = ""
     
+    if message.text.lower() == "bot?": #Classic test
+      self.buffer += "Yes? \U0001f604"
+    
     self._handleMessage(message)
     
     #Handle user commands

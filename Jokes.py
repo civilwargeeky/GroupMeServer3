@@ -306,7 +306,7 @@ class RedditFact(SimpleFileJoke, SimpleFact):
         if string in content:
           #Find the link in the content, then split after it up to the next element
           endPart = content.split(string, 1)[1].split('"',1)[0].replace("&amp;","&") #&amp because weird formatting
-          link = string+endPart
+          link = (string+endPart).replace(".gifv","") #Apparently imgur .gifv isn't supported, but just doing the imgur post is
           
       #Once we have acquired both, run our filters on the title before saving
       for func in self.factFilters:
