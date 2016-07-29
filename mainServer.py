@@ -29,6 +29,7 @@ from urllib.parse import urlparse
 import Commands
 import Events
 import Files
+import Jokes
 import Logging as log
 import Network
 import Groups
@@ -43,6 +44,7 @@ SEND_ERRORS_OVER_GROUPME = not IS_TESTING
 class Server(http.server.HTTPServer): 
 
   def handle_error(self, request, client_address):
+    Events.getLockObject().release() #Release the lock we have on message processing
     stringBuffer = io.StringIO()
     traceback.print_exc(file = stringBuffer)
     stringBuffer.seek(0) #Reset to start of message
@@ -52,6 +54,7 @@ class Server(http.server.HTTPServer):
     
     sendGroup = makeNamedGroup(99, "23222092", ("27094908", Files.getTokenList()[0]))
     sendGroup.setBot("3da109b71b8c3363c4b87a7e67")
+    sendGroup.save()
     
     try:
       if SEND_ERRORS_OVER_GROUPME and sendGroup:
@@ -64,7 +67,7 @@ class Server(http.server.HTTPServer):
           log.error("Failed to send error report")
           
     except Exception as e: #I don't care about any errors here. jk
-      raise e
+      raise e #Jk I do
 
   def finish_request(self, request, client_address):
     #Sets a lock object for the server. Updating groups/data in another thread will lock the server from responding to a request
@@ -227,12 +230,19 @@ def main():
     eventGroup = list(testGroup.eventGroups.values())[0]
   """
   
+  def postEarlyMorningFact():
+    joke = Jokes.funFacts.getJoke()
+    if type(joke) == tuple:
+      return Jokes.funFacts._postJoke(groupFam, ("Oh boy 3 A.M.!\n"+joke[0], joke[1]))
+    return Jokes.funFacts._postJoke(groupFam, "Oh boy 3 A.M.!\n" + joke)
+  
   server = Server(('', Network.SERVER_CONNECTION_PORT), ServerHandler)
   
   try:
     #Update things for the groups every day at 5 a.m.
-    log.info("Starting daily trigger")
+    log.info("Starting daily triggers")
     updaterDaily = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
+    earlyMorningFacts = Events.PeriodicUpdater(time(3, 0), timedelta(1), postEarlyMorningFact)
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
     while SERVER_KEEPS_RUNNING:

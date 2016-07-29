@@ -204,7 +204,6 @@ class SimpleFileJoke(SimpleJoke):
   def load(self):
     if not self.isLoaded:
       log.file.debug(self.title,"has not loaded, loading")
-      self.isLoaded = True
       try: 
         with open(self.fileName) as file:
           tempJokes = json.load(file)
@@ -214,6 +213,7 @@ class SimpleFileJoke(SimpleJoke):
               self.jokes.append(tuple(joke))
             else:
               self.jokes.append(joke)
+        self.isLoaded = True
               
       except (FileNotFoundError, json.JSONDecodeError):
         log.file.error("Joke file read failed")
@@ -369,7 +369,7 @@ corgiFacts    = RedditFact("Corgi Pic", "corgi", "Corgis are strong, independent
 
 
 ### Include filters and name modules
-funFacts.addFactFilter(lambda string: string.replace("[HAFF] ",""))
+funFacts.addFactFilter(lambda string: string.replace("[HAFF]","").lstrip())
 
 ### Add in text jokes ###
 squirrelFacts.setJokes([

@@ -523,7 +523,12 @@ class MainGroup(Group):
                 return
               log.group("Adding" if "not" not in string else "Removing","user '"+userString+"' for event",group)
               if "not" in string:
-                group.removeEventUser(group.users.getUser(userString))
+                #User may not exist in other group due to timing delays or what not, but should definitely exist in this group
+                user = group.users.getUserFromID(self.users.getUser(userString).ID)
+                if user:
+                  group.removeEventUser(user)
+                else:
+                  log.group.debug("Could not find user '"+userString+"' in event group, not removing")
               else:
                 group.addEventUsers(self.users.getUser(userString))
               break #Don't bother with other one if not done

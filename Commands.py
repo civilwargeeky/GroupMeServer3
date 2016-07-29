@@ -78,9 +78,9 @@ class CommandBuilder():
     matchFound = False
     highestIndex = None
     #However, we need to ensure that we have the command at the closest to the start of the string possible, so it can be recursed
-    for trigger in self.triggerStrings:
+    for trigger in sorted(self.triggerStrings, key = len):
       #log.debug("Testing",trigger)
-      index = string.lower().rfind("@"+trigger+" ")
+      index = string.lower().rfind("@"+trigger)
       #log.debug("Match at ",index)
       if index >= 0 and (highestIndex is None or index > highestIndex):
         #log.debug("Index was","not set" if highestIndex is None else "higher")
@@ -194,7 +194,7 @@ class Command():
     self.recipient = fromString.strip()
     self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.sender #So it defaults to the sender if you do like "address" it should return your address
   
-  def doHelp(self):
+  def do_help(self):
     return
   
   addressModifiers = ["college"]

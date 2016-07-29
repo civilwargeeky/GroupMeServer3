@@ -29,16 +29,23 @@ class Response(dict):
 #You are meant to make a connection object to a website, and then you can make as many requests as you want from it. Connections will be opened and closed automatically.
 class Connection():
   debugCutoffLength = 1000
+  messageSplitTime  = 0.25
 
   #Opens a connection to the target website.
   def __init__(self, target = "api.groupme.com", https = False, encoding = "utf-8"):
     self.target = target
     self.https = https
     self.encoding = encoding
+    self.lastRequest = 0
       
   #This sends a messasge to an external website
   #If not forceLog, truncates long responses
   def message(self, method, extension = "", query = {}, headers = {}, body = None, forceLog = True):
+    #Only checks for sleep if we have sent at least one message
+    if self.lastRequest and (time.time()-self.lastRequest > self.messageSplitTime):
+      time_ = self.messageSplitTime - (time.time()-self.lastRequest)
+      log.network("Too many messages, waiting", time_)
+      time.sleep(time_)
     queryString = ""
     if self.https: #Initialize an HTTP connection object
       handle = http.client.HTTPSConnection(self.target)
@@ -53,6 +60,7 @@ class Connection():
     if body: log.network("Body:", body)
     try:
       handle.request(method, extension+queryString, body = (body.encode(self.encoding) if body else None), headers = headers)
+      self.lastRequest = time.time() #Set the time when we finished the last request
     except socket.gaierror:
       log.network.error("Wow. The internet is down. Well that's a problem")
       raise ConnectionError("Inernet Down. Please Check Connection")
