@@ -333,6 +333,11 @@ class Group():
         if command.recipientObj:
           self.users.addRealName(command.recipientObj, command.details)
           self.buffer += "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
+      elif command.command == "human affection":
+        if command.sender:
+          self.buffer += "Love you " + command.sender.getName() + u" \u2764"
+        else:
+          self.buffer += u"Love you \u2764"
       else:
         self.buffer += "I'm sorry, " + message.name + " but I'm afraid I can't do that"
             

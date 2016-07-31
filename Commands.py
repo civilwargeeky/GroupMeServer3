@@ -140,7 +140,7 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "help", "address", "addresses", "joke", "name" \
+                     "help", "address", "addresses", "joke", "name", "human affection" \
                      ]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
@@ -167,7 +167,7 @@ class Command():
       log.command.low("Looking for command:", command)
       match = findWord(command, self.message)
       if match:
-        methodName = "do_"+(self.commands[command] or command)
+        methodName = "do_"+(self.commands[command] or command).replace(" ","_")
         self.leftString  = self.message[:match.start()].rstrip()
         self.rightString = self.message[match.end():].lstrip()
         log.command.low("Left:",self.leftString)
@@ -253,3 +253,6 @@ class Command():
     self.details = filterWords(stripPunctuation(self.rightString), filter).strip()
     self.leftString = filterWords(self.leftString.replace("'s",""), filter) #Get rid of possessives
     self.setRecipient(self.leftString)
+    
+  def do_human_affection(self):
+    pass

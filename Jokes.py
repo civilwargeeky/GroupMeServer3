@@ -308,9 +308,15 @@ class RedditFact(SimpleFileJoke, SimpleFact):
           endPart = content.split(string, 1)[1].split('"',1)[0].replace("&amp;","&") #&amp because weird formatting
           link = (string+endPart).replace(".gifv","") #Apparently imgur .gifv isn't supported, but just doing the imgur post is
           
+      removeFact = False
       #Once we have acquired both, run our filters on the title before saving
       for func in self.factFilters:
         title = func(title)
+        if not title:
+          removeFact = True #If returns empty string or false, just get rid of joke altogether
+          break
+          
+      if removeFact: continue #Break out of current iteration
           
       log.joke.low("----- NEW JOKE -----")
       log.joke.low("Title:", title)
@@ -370,6 +376,12 @@ corgiFacts    = RedditFact("Corgi Pic", "corgi", "Corgis are strong, independent
 
 ### Include filters and name modules
 funFacts.addFactFilter(lambda string: string.replace("[HAFF]","").lstrip())
+
+def ignoreMeta(title):
+  if re.search("\[meta\]", title, re.I):
+    return False
+  return title
+
 
 ### Add in text jokes ###
 squirrelFacts.setJokes([

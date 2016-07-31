@@ -40,17 +40,18 @@ class Connection():
       
   #This sends a messasge to an external website
   #If not forceLog, truncates long responses
-  def message(self, method, extension = "", query = {}, headers = {}, body = None, forceLog = True):
+  def message(self, method, extension = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True):
     #Only checks for sleep if we have sent at least one message
-    if self.lastRequest and (time.time()-self.lastRequest > self.messageSplitTime):
-      time_ = self.messageSplitTime - (time.time()-self.lastRequest)
+    currTime = time.time() #So we don't have any time resolution issues
+    if self.lastRequest and (currTime-self.lastRequest < self.messageSplitTime):
+      time_ = self.messageSplitTime - (currTime-self.lastRequest)
       log.network("Too many messages, waiting", time_)
       time.sleep(time_)
     queryString = ""
     if self.https: #Initialize an HTTP connection object
-      handle = http.client.HTTPSConnection(self.target)
+      handle = http.client.HTTPSConnection(self.target, timeout = timeout)
     else: 
-      handle = http.client.HTTPConnection(self.target)
+      handle = http.client.HTTPConnection(self.target, timeout = timeout)
     if len(extension) > 0 and extension[0] != "/": extension = "/"+extension
     log.network("Starting", method, "request to", self.target+extension)
     if query: 
@@ -75,11 +76,12 @@ class Connection():
   def get(self, url = "", query = {}, headers = {}, body = None, forceLog = True): return self.message("GET", url, query, headers, body, forceLog)
   def post(self, url = "", query = {}, headers = {}, body = None, forceLog = True): return self.message("POST", url, query, headers, body, forceLog)
   
-IP_HANDLER = Connection("wtfismyip.com") #Object to get the current IP address
+IP_HANDLER_1 = Connection("wtfismyip.com") #Object to get the current IP address
+IP_HANDLER_2 = Connection("icanhazip.com") #For later, mess with timeouts and things so that we can try from different places
 def getIPAddress():
   global _lastIPUpdateTime, IP_ADDRESS
   if time.time() - _lastIPUpdateTime > IP_UPDATE_TIME: #If updated in last six hours
-    ip, code = IP_HANDLER.get("text")
+    ip, code = IP_HANDLER_1.get("text")
     if code == 200:
       IP_ADDRESS = "http://"+ip.rstrip()+":"+str(SERVER_CONNECTION_PORT)
       _lastIPUpdateTime = time.time()
