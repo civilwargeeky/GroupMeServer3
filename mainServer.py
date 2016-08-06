@@ -38,7 +38,7 @@ import Users
 #Globals
 SERVER_KEEPS_RUNNING     = True
 IS_TESTING               = os.path.basename(os.getcwd()) in ["test","dev"]
-SEND_ERRORS_OVER_GROUPME = not IS_TESTING
+SEND_ERRORS_OVER_GROUPME = True #not IS_TESTING
 
 #This is mostly the same, but I want custom error logging
 class Server(http.server.HTTPServer): 

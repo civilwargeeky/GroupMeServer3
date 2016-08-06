@@ -78,7 +78,7 @@ class CommandBuilder():
     matchFound = False
     highestIndex = None
     #However, we need to ensure that we have the command at the closest to the start of the string possible, so it can be recursed
-    for trigger in sorted(self.triggerStrings, key = len):
+    for trigger in sorted(self.triggerStrings, key = len, reverse = True):
       #log.debug("Testing",trigger)
       index = string.lower().rfind("@"+trigger)
       #log.debug("Match at ",index)

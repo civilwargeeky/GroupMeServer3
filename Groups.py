@@ -271,8 +271,8 @@ class Group():
     #Each group will get a "searcher" assigned it that loads all the group's messages and can search through them on command
     MsgSearch.getSearcher(self).appendMessage(message)
     
-    #log.network.debug("Handling message: ", message)
-    log.network("Handling message: ", message) #Really want to see this for now while handling stuff
+    log.network.debug("Handling message: ", message)
+    #log.network("Handling message: ", message) #Really want to see this for now while handling stuff
     
     self.buffer = ""
     
@@ -285,6 +285,9 @@ class Group():
     commandList = self.commandBuilder.buildCommands(message)
     commandNum = 0
     for command in commandList:
+      if not command.message.strip(): #If there isn't actually any text with the command
+        continue
+        
       commandNum += 1
       if len(commandList) > 1:  
         self.buffer += str(commandNum) + ". "
@@ -363,7 +366,7 @@ class Group():
         return #Don't need to check any other messages if it was this one
         
       #If we added a new user, or removed a user
-      if "from the group" in message.text and ("added" in message.text or "removed" in message.text):
+      if ("to the group" in message.text and "added" in message.text) or ("from the group" in message.text and "removed" in message.text):
         self.loadUsersFromWeb()
         
     
@@ -578,7 +581,7 @@ class MainGroup(Group):
         except KeyError:
           log.group("Event has no location")
         post("Have a joke!")
-        post("Joke module creation pending")
+        Jokes.joke.postJoke(eventGroup)
 
         eventGroup.updateEvent(eventData) #Add in users that are going to group
         
@@ -719,6 +722,7 @@ class EventGroup(SubGroup):
     
     self.end_at = dateutil.parser.parse(eventData['end_at']).timestamp() #This is an integer similar to time.time()
     
+    log.group("Searching for users to add")
     toAdd = []
     for id in eventData['going']:
       if not self.users.getUserFromID(id):
@@ -726,10 +730,12 @@ class EventGroup(SubGroup):
        
     self.addEventUsers(toAdd)
     
+    log.group("Searching for users to delete")
     for id in eventData['not_going']:
       if self.users.getUserFromID(id):
         self.removeEventUser(self.users.getUserFromID(id)) #Just remove them straight out. We cannot do multiple calls
     
+    log.group("Checking for group attribute changes")
     toAdd = {}
     if 'name' in eventData:
       if eventData['name'] != self.name: #We don't need to update it if we already have this name

@@ -289,9 +289,16 @@ class RedditFact(SimpleFileJoke, SimpleFact):
   
     log.joke("Obtaining new",self.title+"s")
     log.network.low("Suppressing network for joke acquisition")
-    log.network.debug.pushState(False) #Temporarily turn off network, because this is annoying
-    xmlFeed, code = self.connection.get("/r/"+self.subreddit+"/.rss", query = {"limit":100})
-    log.network.debug.popState()
+    #log.network.debug.pushState(False) #Temporarily turn off network, because this is annoying
+    xmlFeed, code = self.connection.get("/r/"+self.subreddit+"/.rss", query = {"limit":100}, headers = {
+      "Upgrade-Insecure-Requests": "1",
+      "User-Agent": "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "DNT": "1",
+      "Accept-Encoding": "gzip, deflate, sdch, br",
+      "Accept-Language": "en-US,en;q=0.8",
+    })
+    #log.network.debug.popState()
     log.joke.debug("Code Received:",code)
     if code != 200: return False
     obj = xml.XML(xmlFeed)

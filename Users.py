@@ -275,7 +275,7 @@ class UserList():
           #Search through the input string for names, starting with the longest names first to avoid conflicts
           #E.G. If we have "Ian George" and "Ian George 4 Lyfe" we want to get "Ian George 4 Lyfe" first always
           for name in sorted(searchDict, key = len, reverse = True):
-            log.user.low("Testing name:",repr(name))
+            log.user("Testing name:",repr(name))
             #Find a match for the name (between word breaks or an at sign) ignoring case
             if re.search(r"\b"+name+r"\b", userIdent, re.IGNORECASE):
               log.user("Found user:", searchDict[name])
