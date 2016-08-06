@@ -140,11 +140,11 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "help", "address", "addresses", "joke", "name", "human affection" \
+                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection" \
                      ]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
-                          "called":"name"})
+                          "called":"name", "love me":"human affection"})
     
     self.group = group
     self.message = commandString
@@ -152,12 +152,12 @@ class Command():
     self.sender = sender
     
     #Things to be set by a command function
-    self.verb         = None
-    self.recipient    = None
+    self.verb         = None #The verb is kind of like a specifier but references what the action should be doing (setting, getting, etc.)
+    self.recipient    = None #This is a string denoting the recipient of the action
     self.recipientObj = None #This will be a user object from a userlist
-    self.specifier    = None
+    self.specifier    = None #The specifier is some additional data about the command, like if we want blonde jokes or nerd jokes
     self.command      = None #This is not set by the called function
-    self.details      = None
+    self.details      = None #Details would be like the contents of the address, or the the name to set a new name to
     #Thsee are for left and right of command
     self.leftString   = None
     self.rightString  = None
@@ -194,13 +194,17 @@ class Command():
     self.recipient = fromString.strip()
     self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.sender #So it defaults to the sender if you do like "address" it should return your address
   
+  def do_version(self):
+    with open("version.txt") as file:
+      self.details = file.read().rstrip()
+  
   def do_help(self):
     return
   
   addressModifiers = ["college"]
   
   def do_address(self):
-    self.details = filterWords(stripPunctuation(self.rightString), ["in","is", "to"]).strip()
+    self.details = filterWords(stripPunctuation(self.rightString), ["in","is", "to", "and"]).strip()
     
     remainingString = self.leftString.strip()
     if findWord("is", self.rightString):
@@ -212,7 +216,7 @@ class Command():
         remainingString = remainingString[match.end():].lstrip() #Take out the word we found
         break
     
-    for word in self.addressModifiers:
+    for word in self.addressModifiers: #Goes through possible types of addresses, checking only at the end to get "College Address" but not "College Sophia's address"
       match = re.search(r"\b"+word+r"\Z", self.leftString.rstrip(), re.I)
       if match:
         self.specifier = word
@@ -249,9 +253,39 @@ class Command():
       self.details = jokeIdentifier
       
   def do_name(self):
-    filter = ["is", "was"]
+    filter = ["is", "was", "and"]
     self.details = filterWords(stripPunctuation(self.rightString), filter).strip()
+    
+    if findWord("real", self.leftString):
+      self.specifier = "real"
+    
+    if findWord(["what is", "what are", "get"], self.leftString):
+      self.verb = "get"
+      if self.specifier != "real": #If they don't specifically want their real name, return all their names
+        self.command = "names"
+        return self.do_names()
+    
+    self.verb = "set"
+    if findWord(["delete", "remove", "erase"], self.leftString):
+      self.verb = "delete"
+      self.details = self.rightString
+      
     self.leftString = filterWords(self.leftString.replace("'s",""), filter) #Get rid of possessives
+    self.setRecipient(self.leftString)
+    
+  def do_names(self):  
+    if findWord("purge all", self.leftString):
+      self.verb = "purge"
+      return #No more needs to be done
+      
+    self.verb = "get"
+    if findWord("delete", self.leftString):
+      self.verb = "delete"
+      self.lefString = self.leftString.replace("delete", "")
+
+      
+    if findWord("all", self.leftString):
+      self.specifier = "all"
     self.setRecipient(self.leftString)
     
   def do_human_affection(self):

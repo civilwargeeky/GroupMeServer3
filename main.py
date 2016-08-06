@@ -114,12 +114,23 @@ def main():
   #  writeLog("Essential files not found, updating")
   #  updateFiles(True)
   
-  #Always update on first time, in case of bad juju
-  updateFiles(True)
-    
   timesFailed = 0
     
   while True:
+  
+    #Always try to first update all the files
+    try:
+      #Once server stops, download new files
+      updateFiles()
+      
+      #Don't reset counter if we just download the files
+    except BaseException as E:
+      with open("mainLog.txt","a") as file:
+        file.write(getDateString())
+        file.write(": Exception!\r\n")
+        traceback.print_exc(file = file)
+      timesFailed += 1
+  
     try:
       #Start out by calling the main
       writeLog("Starting Main")
@@ -139,18 +150,6 @@ def main():
         traceback.print_exc(file = file)
       timesFailed += 1
       writeLog("Exception #"+str(timesFailed))
-      
-    try:
-      #Once server stops, download new files
-      updateFiles()
-      
-      #Don't reset counter if we just download the files
-    except Exception as E:
-      with open("mainLog.txt","a") as file:
-        file.write(getDateString())
-        file.write(": Exception!\r\n")
-        traceback.print_exc(file = file)
-      timesFailed += 1
       
       
     #If did not succeed, wait

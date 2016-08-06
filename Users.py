@@ -48,10 +48,22 @@ class User():
     if not self.ID: log.error("Attempted to get file name for unloaded or unset user")
     return Files.getFileName(Files.join(Files.getGroupFolder(self.group), "Users", self.ID or "DEFAULT_USER"))
     
-  #Updates or sets the user's name, adding it to an alias list every time it is set
-  def addName(self, name, realName = False):
+  #Just adds an alias. No name update required
+  def addAlias(self, name):
     if name not in self.alias:
       self.alias.append(name)
+      
+  def removeAlias(self, name):
+    try:
+      self.alias.pop(self.alias.index(name))
+      return True
+    except IndexError:
+      log.user("Could not remove alias",name,"for",self.getName()+". Name could not be found")
+      return False
+    
+  #Updates or sets the user's name, adding it to an alias list every time it is set
+  def addName(self, name, realName = False):
+    self.addAlias(name)
     if realName:
       self.realName = name
     else:
@@ -66,6 +78,10 @@ class User():
       if value:
         return value
     return "User " + (self.ID or "Undefined")
+    
+  #Just returns the string of the name along with "real name" if its the real name and "GM Name" if its the groupMe name
+  def specifyName(self, name):
+    return name+(" ('Real Name')" if name == self.realName else "") + (" (GM Name)" if name == self.GMName else "")
     
   def setToken(self, token):
     if type(token) != str: raise TypeError("token must be of type str, not "+str(type(token)))
@@ -213,11 +229,35 @@ class UserList():
     if alias and userObj in self.userList and alias not in self.aliasList:
       self.aliasList[alias] = userObj
       
+  #This adds a new alias to the user, not an alias to our list of alii
+  def addNewAlias(self, userObj, alias):
+    userObj.addAlias(alias)
+    userObj.save()
+    
+    self.addAlias(userObj, alias)
+      
   def addGMName(self, userObj, alias, realName = False):
     userObj.addName(alias, realName)
     userObj.save()
     
     self.addAlias(userObj, alias)
+    
+  #delete a user's alias if it matches the given alias
+  def removeAlias(self, userObj, alias):
+    log.user("Removing name '"+alias+"' for",userObj.getName())
+    if alias == userObj.realName or alias == userObj.GMName:
+      log.user("Cannot delete name because it is realname or GMName")
+      return False
+      
+    for name in self.aliasList.copy():
+      if name == alias:
+        del self.aliasList[name]
+        break
+        
+    val = userObj.removeAlias(alias)
+    userObj.save()
+    return val
+    
    
   def addRealName(self, userObj, alias):
     return self.addGMName(userObj, alias, realName = True)
@@ -227,8 +267,12 @@ class UserList():
     files = Files.getFilesInDir(self.dirName)
     log.user("Loading {: 2} users for Group".format(len(files)), self.group.ID)
     for userFile in files:
-      user = User.loadUser(userFile, self.group)
-      self.addUser(user)
+      try:
+        user = User.loadUser(userFile, self.group)
+        self.addUser(user)
+      except KeyError: #This means the data was corrupted on save
+        log.user.error("Could not load user from file:",userFile,"is probably corrupted")
+        
       
   def addUser(self, userObj):
     if userObj.ID in self.IDDict:
@@ -282,11 +326,11 @@ class UserList():
               return searchDict[name]
           return False
          
-        log.user.low("Searching names for realNames")
-        toRet = searchNames(realNames)
-        if toRet: return toRet
         log.user.low("Searching names for GMNames")
         toRet = searchNames(GMNames)
+        if toRet: return toRet
+        log.user.low("Searching names for realNames")
+        toRet = searchNames(realNames)
         if toRet: return toRet
         log.user.low("Searching names for alii")
         toRet = searchNames(alii)

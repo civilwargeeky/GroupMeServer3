@@ -73,15 +73,22 @@ class Connection():
     handle.close()
     return data, code
   
-  def get(self, url = "", query = {}, headers = {}, body = None, forceLog = True): return self.message("GET", url, query, headers, body, forceLog)
-  def post(self, url = "", query = {}, headers = {}, body = None, forceLog = True): return self.message("POST", url, query, headers, body, forceLog)
+  def get(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("GET", url, query, headers, body, forceLog)
+  def post(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("POST", url, query, headers, body, forceLog)
   
 IP_HANDLER_1 = Connection("wtfismyip.com") #Object to get the current IP address
 IP_HANDLER_2 = Connection("icanhazip.com") #For later, mess with timeouts and things so that we can try from different places
 def getIPAddress():
   global _lastIPUpdateTime, IP_ADDRESS
   if time.time() - _lastIPUpdateTime > IP_UPDATE_TIME: #If updated in last six hours
-    ip, code = IP_HANDLER_1.get("text")
+    ip, code = None, None
+    try:
+      ip, code = IP_HANDLER_1.get("text", timeout = 5)
+    except socket.timeout:
+      try:
+        ip, code = IP_HANDLER_2.get("", timeout = 5)
+      except socket.timeout:
+        log.net.error("FAILED TO ACQUIRE IP ADDRESS FROM WEB!")
     if code == 200:
       IP_ADDRESS = "http://"+ip.rstrip()+":"+str(SERVER_CONNECTION_PORT)
       _lastIPUpdateTime = time.time()
@@ -265,13 +272,29 @@ class GroupMeHandler():
     log.network("Could not remove user")
     return False
     
+  #WARNING: UNTIL A BOTS CLASS IS MADE, THIS WILL ONLY REMAKE BOTSLYS
   def updateBots(self, botsList):
-    pass
-    """
     if type(botsList) == str:
       botsList = [botsList]
       
-    for bot in botsList:"""
+    for bot in botsList[:1]: #...only doing the first one for now
+      log.net("Updating bot with ID",bot)
+      if self.deleteBot(bot):
+        log.net("Successfully deleted bot! (sleeping for them to update database)")
+        time.sleep(3) #Arbitrary time, should be more than enough
+        id = self.createBotsly()
+        if id:
+          self.bot = id #Update us
+          self.group.bot = id #Update our parent group
+          self.group.save()
+        else:
+          log.net.error("COULD NOT UPDATE BOT ON CREATE, ERRORING")
+          raise RuntimeError("COULD NOT CREATE BOT FOR UPDATE")
+      else:
+        log.net.error("COULD NOT UPDATE BOT, ERRORING")
+        raise RuntimeError("COULD NOT DELETE BOT FOR UPDATE")
+        
+    
       
     
   ### Bot Management Functions ###

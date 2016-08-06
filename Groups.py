@@ -289,9 +289,13 @@ class Group():
         continue
         
       commandNum += 1
-      if len(commandList) > 1:  
+      if len(commandList) > 1:
+        if commandNum > 1: #Add in a newline if on the second or more command
+          self.buffer += "\n"
         self.buffer += str(commandNum) + ". "
-      if command.command == "address":
+      if command.command == "version":
+        self.buffer += "BOTSLY FIRMWARE VERSION " + command.details
+      elif command.command == "address":
         if command.recipientObj:
           name = command.recipientObj.getName()
           addressString = (command.specifier.title() + " " if command.specifier else "") + "Address"
@@ -334,8 +338,76 @@ class Group():
               command.jokeHandler.postJoke(self) #Otherwise just post the jokes by themselves
       elif command.command == "name":
         if command.recipientObj:
-          self.users.addRealName(command.recipientObj, command.details)
-          self.buffer += "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
+          if command.verb == "set":
+            if command.sender: #I am a spiteful webmaster
+              if command.sender.ID in ["15748240"]:
+                self.buffer += "I'm sorry, " + command.sender.getName() + ", but you are disallowed from setting any names"
+                continue #Break out of this part of the loop
+            
+            if command.specifier == "real" or not command.recipientObj.realName:
+              self.users.addRealName(command.recipientObj, command.details)
+            else:
+              self.users.addNewAlias(command.recipientObj, command.details)
+            self.buffer += "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
+          elif command.verb == "delete":
+            self.buffer += "Removing name for " + command.recipientObj.getName() + "... "
+            try:
+              index = int(command.details)
+              try:
+                toRemove = sorted(command.recipientObj.alias, key = str.lower)[index-1] #This relies on being the same sort as the one in "names"
+              except IndexError:
+                self.buffer += "Could not remove name #"+str(index)+" (you only have "+str(len(command.recipientObj.alias))+ " names)"
+              else:
+                success = self.users.removeAlias(command.recipientObj, toRemove)
+                if success:
+                  self.buffer += "Successfully removed name '"+toRemove+"'"
+                else:
+                  if toRemove == command.recipientObj.realName or toRemove == command.recipientObj.GMName:
+                    self.buffer += "You cannot remove either your GroupMe Name or your set 'real' name"
+                  else:
+                    self.buffer += "Could not remove name #"+str(toRemove) + ": " + toRemove + " (go yell at Daniel)"
+            except ValueError:
+              success = self.users.removeAlias(command.recipientObj, command.details)
+              if success:
+                self.buffer += "Successfully removed name '"+command.details+"'"
+              else:
+                if toRemove == command.recipientObj.realName or toRemove == command.recipientObj.GMName:
+                    self.buffer += "You cannot remove either your GroupMe Name or your set 'real' name"
+                else:
+                  self.buffer += "Could not find/remove name '"+command.details+"'"
+          
+      elif command.command == "names":
+        if command.verb == "purge" and command.sender and command.sender.ID == "27094908": #Can only be accessed by me
+          self.buffer += "And botsly looked at what he had wrought, and deemed it evil"
+          for user in self.users.userList:
+            user.realName = None #Remove this
+            for alias in user.alias.copy():
+              self.users.removeAlias(user, alias)
+          self.handler.write("PURGING ALL NAMES WITH HOLY FIRE", image = "http://i.groupme.com/1920x1080.png.8f8b5477e0c9438084b914eea59fb9f8.large")
+            
+        elif command.verb == "get":
+          if command.specifier == "all": #If we want ALL names
+            self.buffer += u"Printing out all names for everyone. \U0001f389 yay \U0001f389\n"
+            for user in sorted(self.users.userList, key = lambda a: a.getName(preferGroupMe = True).lower()): #This part is copied from below. May want to refactor
+              self.buffer += user.getName(preferGroupMe = True) + "\n"
+              i = 1
+              for name in sorted(user.alias, key = str.lower):
+                self.buffer += str(i)+": " + user.specifyName(name) + "\n"
+                i += 1
+            
+          if command.recipientObj:
+            self.buffer += "All names for " + command.recipientObj.getName() + ":\n"
+            i = 1
+            for name in sorted(command.recipientObj.alias, key = str.lower):
+              self.buffer += str(i)+": " + command.recipientObj.specifyName(name) + "\n"
+              i += 1
+        elif command.verb == "delete": #Implies that they want to delete all names
+          if command.recipientObj:
+            count = 0
+            for name in command.recipientObj.alias.copy():
+              count += int(self.users.removeAlias(command.recipientObj, name)) #Tries to remove all names, will fail for real and GM names
+            self.buffer += "Removed " + str(count) + " names for " + command.recipientObj.getName()
+            
       elif command.command == "human affection":
         if command.sender:
           self.buffer += "Love you " + command.sender.getName() + u" \u2764"
