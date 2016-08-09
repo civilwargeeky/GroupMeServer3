@@ -211,11 +211,15 @@ class Command():
         log.command.debug("Handling",methodName)
       except AttributeError:
         log.command.debug("No handle function for method",methodName)
+        return ""
         
       return method() #Return the string it returns
     else:
-      return "I'm sorry, " + message.name + " but I'm afraid I can't '"+filterWords(self.message, "me", "you")+"'"
-      #return "I'm sorry, " + message.name + " but I'm afraid I can't do that"
+      senderName = "internet person"
+      if self.sender:
+        senderName = self.sender.getName(preferGroupMe = True)
+      return "I'm sorry, " + senderName + " but I'm afraid I can't '"+filterWords(self.message, "me", "you")+"'"
+      #return "I'm sorry, " + senderName + " but I'm afraid I can't do that"
   
   def do_version(self):
     with open("version.txt") as file:

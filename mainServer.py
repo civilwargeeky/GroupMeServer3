@@ -98,8 +98,6 @@ class ServerHandler(http.server.BaseHTTPRequestHandler):
       Website.handleRequest("POST", parsedURL, self.headers) #Give web request with the message and headers
       #DON'T FORGET: SEND A RESPONSE
     else: #Success is for a groupMe message
-      ###DEBUG REMOVE LATER###
-      if message['sender_type'] == 'bot': return
       log.info.debug("Received GroupMe Message")
       ### Note: The way to implement headers is "send_response, send_header, send_header..., end_headers"
       ### Also: For writing body, just use self.wfile.write after end headers

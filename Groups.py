@@ -283,6 +283,7 @@ class Group():
     #Each group will get a "searcher" assigned it that loads all the group's messages and can search through them on command
     MsgSearch.getSearcher(self).appendMessage(message)
     
+    if message.sender_type == "bot": return #We don't care what bot has to say, only record that it did
     #log.network("Handling message: ", message) #Really want to see this for now while handling stuff
     
     self.buffer = ""
@@ -293,6 +294,7 @@ class Group():
     self._handleMessage(message)
     
     #Handle user commands
+    #NOTE: GROUPS DERIVED FROM OTHER CLASSES WITH DIFFERENT HANDLING SPECIFICATION SHOULD OVERRIDE commandBuilder IN __init__ TO BE OF THE APPROPRIATE TYPE
     commandList = self.commandBuilder.buildCommands(message)
     commandNum = 0
     for command in commandList:
