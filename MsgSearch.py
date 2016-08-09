@@ -16,15 +16,15 @@ _searcherList = {}
 #Its okay if searchers do not exist at post-init. They will simply exist when needed
 def getSearcher(group):
   try:
-    return _searcherList[group.ID]
+    return _searcherList[group.groupID]
   except KeyError:
     searcher = Searcher(group)
     searcher.load()
-    _searcherList[group.ID] = searcher
+    _searcherList[group.groupID] = searcher
     return searcher
 
 class Searcher():
-  searchesFolder = "MsgSearch" #The folder where all of the message archives are kept
+  searchesFolder = "MsgSearchFolder" #The folder where all of the message archives are kept
 
   def __repr__(self):
     return "<MsgSearch."+type(self).__name__+" object for Group "+str(self.group.ID)+">"
@@ -50,10 +50,8 @@ class Searcher():
   def save(self):
     if self._hasLoaded: #If hasn't loaded, nothing has changed yet (can't, hasn't been loaded)
       log.save.low("Saving",self)
-      with Files.SafeOpen(self.fileName, "wb") as file:
-        for message in self._messageList:
-          file.write(json.dumps(message).encode("unicode_escape"))
-          file.write(b"\r\n")
+      with Files.SafeOpen(self.fileName, "w") as file:
+        json.dump(self._messageList, file)
   
   def load(self):
     if not self._hasLoaded:
@@ -61,9 +59,8 @@ class Searcher():
       self._hasLoaded = True
       try:
         log.debug("Looking for file: ", self.fileName)
-        with open(self.fileName, "r", encoding = "unicode_escape") as file:
-          for line in file:
-            self._messageList.append(json.loads(line))
+        with open(self.fileName, "r") as file:
+          self._messageList = json.load(file)
       except FileNotFoundError:
         log.save.debug("No file found for",self,", not loading")
           

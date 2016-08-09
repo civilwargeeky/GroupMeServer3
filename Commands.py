@@ -98,10 +98,13 @@ class CommandBuilder():
     commandList.reverse()
     return commandList
    
+def methodize(toGet): #I swear I'm not a protestant
+  return toGet.replace(" ","_")
+   
 ### Command Utiltites ###
-def filterWords(string, wordList):
+def filterWords(string, wordList, replacement = ""):
   for word in wordList:
-    string = re.sub(r"\b"+word+r"\b", "", string, re.I)
+    string = re.sub(r"\b"+word+r"\b", replacement, string, re.I)
   return string
 
 def stripPunctuation(string):
@@ -131,6 +134,11 @@ E.g.  @[botsly] [set] [my] [] [address] to [this place]
       @[botsly] [tell] [] [5 blonde] [jokes] []
       @[botsly] [] [] [] [joke] []
 So the command will be able to return .bot .verb .recipient .specifier .command .details
+
+Each "command" will have 3 definitions. 
+1. A string in the dict (plus other commands that could match)
+2. A do_command function that sets all parameters and returns nothing
+3. A handle_command function that will act on data, returning a string or None and possibly posting to the parent group
 """
 class Command():
 
@@ -167,7 +175,7 @@ class Command():
       log.command.low("Looking for command:", command)
       match = findWord(command, self.message)
       if match:
-        methodName = "do_"+(self.commands[command] or command).replace(" ","_")
+        methodName = "do_"+methodize(self.commands[command] or command)
         self.leftString  = self.message[:match.start()].rstrip()
         self.rightString = self.message[match.end():].lstrip()
         log.command.low("Left:",self.leftString)
@@ -194,10 +202,27 @@ class Command():
     self.recipient = fromString.strip()
     self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.sender #So it defaults to the sender if you do like "address" it should return your address
     if not self.recipientObj: self.recipientObj = self.sender #It will also default to sender if we can't find any user (POTENTIALLY BAD)
+    
+  def handle(self):
+    if self.command:
+      methodName = "handle_"+methodize(self.command)
+      try:
+        method = getattr(self, methodName)
+        log.command.debug("Handling",methodName)
+      except AttributeError:
+        log.command.debug("No handle function for method",methodName)
+        
+      return method() #Return the string it returns
+    else:
+      return "I'm sorry, " + message.name + " but I'm afraid I can't '"+filterWords(self.message, "me", "you")+"'"
+      #return "I'm sorry, " + message.name + " but I'm afraid I can't do that"
   
   def do_version(self):
     with open("version.txt") as file:
       self.details = file.read().rstrip()
+  
+  def handle_version(command):
+    return "BOTSLY FIRMWARE VERSION " + command.details
   
   def do_help(self):
     return
@@ -227,10 +252,38 @@ class Command():
     remainingString = remainingString.strip()
     self.setRecipient(remainingString)
     
+  def handle_address(command):
+    if command.recipientObj:
+      name = command.recipientObj.getName()
+      addressString = (command.specifier.title() + " " if command.specifier else "") + "Address"
+      if command.verb == "set":
+        command.recipientObj.setAddress(command.details, command.specifier)
+        return addressString+" Updated:\n" + name + " | " + command.details + "\n"
+      else:
+        address = command.recipientObj.getAddress(command.specifier)
+        if address:
+          return addressString+" for "+name+":\n"+address
+        else:
+          return name + " has no " + addressString
+    else:
+      return "I know you want me to do something with addresses, but I don't know whose! (Yell at Daniel)\n"
+    
   def do_addresses(self):
     for word in self.addressModifiers:
       if findWord(self.specifier, self.leftString):
         self.specifier = word
+        
+  def handle_addresses(command):
+    toRet = ""
+    for user in command.group.users.getUsersSorted(lambda user: user.getName()):
+      baseAddress = user.getAddress()
+      if baseAddress:
+        toRet += "Addresses for " + user.getName() + ":\n"
+        toRet += "--" + baseAddress + "\n"
+        for modifier in Commands.Command.addressModifiers: #Goes through all possible address types
+          subAddress = user.getAddress(modifier)
+          if subAddress:
+            toRet += "--" + modifier.title() + ": " + subAddress + "\n"
     
   #do_joke objects will have a special ".jokeHandler" attribute
   #because spcifier can be an int, this also uses "details" if we have a variant of standard joke
@@ -252,6 +305,26 @@ class Command():
     
     if self.jokeHandler == Jokes.joke:
       self.details = jokeIdentifier
+     
+  def handle_joke(command):
+    if command.specifier == "type":
+      return "Joke Types: " + " | ".join((joke + "s") for joke in Jokes.BaseJoke._jokeObjects if joke != "regular") #Join all the joke types in the dictionary
+    else:
+      toRet = ""
+      numJokes = 1
+      if command.specifier == "some":
+        numJokes = random.randint(2,5) #Between 2 and 4
+      elif type(command.specifier) == int:
+        numJokes = min(max(1, command.specifier), 7) #Between 1 and 7
+        
+      if command.jokeHandler == Jokes.joke:
+        for i in range(numJokes):
+          toRet += Jokes.joke.getJoke(command.details) + "\n" #Add a joke to the buffer since it is just text. The details is possible category
+      else:
+        for i in range(numJokes):
+          command.jokeHandler.postJoke(command.group) #Otherwise just post the jokes by themselves
+          
+      return toRet
       
   def do_name(self):
     filter = ["is", "was", "and"]
@@ -274,6 +347,46 @@ class Command():
     self.leftString = filterWords(self.leftString.replace("'s",""), filter) #Get rid of possessives
     self.setRecipient(self.leftString)
     
+  def handle_name(command):
+    if command.recipientObj:
+      if command.verb == "set":
+        if command.sender: #I am a spiteful webmaster
+          if command.sender.ID in ["15748240"]:
+            return "I'm sorry, " + command.sender.getName() + ", but you are disallowed from setting any names"
+        
+        if command.specifier == "real" or not command.recipientObj.realName:
+          command.group.users.addRealName(command.recipientObj, command.details)
+        else:
+          command.group.users.addNewAlias(command.recipientObj, command.details)
+        return "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
+      elif command.verb == "delete":
+        return "Removing name for " + command.recipientObj.getName() + "... "
+        try:
+          index = int(command.details)
+          try:
+            toRemove = sorted(command.recipientObj.alias, key = str.lower)[index-1] #This relies on being the same sort as the one in "names"
+          except IndexError:
+            return "Could not remove name #"+str(index)+" (you only have "+str(len(command.recipientObj.alias))+ " names)"
+          else:
+            success = command.group.users.removeAlias(command.recipientObj, toRemove)
+            if success:
+              return "Successfully removed name '"+toRemove+"'"
+            else:
+              if toRemove == command.recipientObj.realName or toRemove == command.recipientObj.GMName:
+                return "You cannot remove either your GroupMe Name or your set 'real' name"
+              else:
+                return "Could not remove name #"+str(toRemove) + ": " + toRemove + " (go yell at Daniel)"
+        except ValueError:
+          success = command.group.users.removeAlias(command.recipientObj, command.details)
+          if success:
+            return "Successfully removed name '"+command.details+"'"
+          else:
+            if toRemove == command.recipientObj.realName or toRemove == command.recipientObj.GMName:
+                return "You cannot remove either your GroupMe Name or your set 'real' name"
+            else:
+              return "Could not find/remove name '"+command.details+"'"
+      
+    
   def do_names(self):  
     if findWord("purge all", self.leftString):
       self.verb = "purge"
@@ -289,5 +402,47 @@ class Command():
       self.specifier = "all"
     self.setRecipient(self.leftString)
     
+  def handle_names(command):
+    #META FUNCTION DEFINITION (used in two places below)
+    def addAllNames(user):
+      toRet = ""
+      toRet += user.getName(preferGroupMe = True) + "\n"
+      i = 1
+      for name in sorted(user.alias, key = str.lower):
+        toRet += str(i)+": " + user.specifyName(name) + "\n"
+        i += 1
+      return toRet
+  
+    if command.verb == "purge" and command.sender and command.sender.ID == "27094908": #Can only be accessed by me
+      return "And botsly looked at what he had wrought, and deemed it evil"
+      for user in command.group.users.userList:
+        user.realName = None #Remove this
+        for alias in user.alias.copy():
+          command.group.users.removeAlias(user, alias)
+      command.group.handler.write("PURGING ALL NAMES WITH HOLY FIRE", image = "http://i.groupme.com/1920x1080.png.8f8b5477e0c9438084b914eea59fb9f8.large")
+ 
+    elif command.verb == "get":
+      toRet = ""
+      if command.specifier == "all": #If we want ALL names
+        toRet += u"Printing out all names for everyone. \U0001f389 yay \U0001f389\n"
+        for user in sorted(command.group.users.userList, key = lambda a: a.getName(preferGroupMe = True).lower()): #This part is copied from below. May want to refactor
+          toRet += addAllNames(user)
+      elif command.recipientObj:
+        toRet += addAllNames(command.recipientObj)
+      return toRet
+    elif command.verb == "delete": #Implies that they want to delete all names
+      if command.recipientObj:
+        count = 0
+        for name in command.recipientObj.alias.copy():
+          count += int(command.group.users.removeAlias(command.recipientObj, name)) #Tries to remove all names, will fail for real and GM names
+        return "Removed " + str(count) + " names for " + command.recipientObj.getName()
+        
+    
   def do_human_affection(self):
     pass
+    
+  def handle_human_affection(command):
+    if command.sender:
+      return "Love you " + command.sender.getName() + u" \u2764"
+    else:
+      return u"Love you \u2764"

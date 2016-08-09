@@ -67,46 +67,48 @@ def updateFiles(initial = False):
   writeLog("zipfile aquired!")
   
   #Extracting from zip into temp directory
-  zipReader = zipfile.ZipFile(tempZip)
-  zipReader.extractall(tempFolder)
-  zipReader.close()
-  os.remove(tempZip)
-  
-  writeLog("zipfile extracted!")
-  
-  #We need to invalidate cache before loading new files (I think? Can't hurt)
-  importlib.invalidate_caches()
-  
-  writeLog("caches invalidated")
-  
-  #Reading file list and overwriting
-  with open(os.path.join(tempFolder, fileListName),"r") as listReader:
-    fileList = [file.rstrip() for file in listReader]
-  for file in fileList:
-    writeLog("Loading",file)
-    try:
-      if os.path.isdir(os.path.join(tempFolder, file)):
-        if os.path.exists(file): shutil.rmtree(file) #Remove it if exists already
-        shutil.copytree(os.path.join(tempFolder, file), file)
-      else:
-        if os.path.exists(file): os.remove(file) #Remove the file before recopying
-        shutil.copy(os.path.join(tempFolder,file),file)
-        if os.path.exists(file):
-          writeLog(" "*7,file," confirmed to exist!")
+  try:
+    zipReader = zipfile.ZipFile(tempZip)
+    zipReader.extractall(tempFolder)
+    zipReader.close()
+    
+    writeLog("zipfile extracted!")
+    
+    #We need to invalidate cache before loading new files (I think? Can't hurt)
+    importlib.invalidate_caches()
+    
+    writeLog("caches invalidated")
+    
+    #Reading file list and overwriting
+    with open(os.path.join(tempFolder, fileListName),"r") as listReader:
+      fileList = [file.rstrip() for file in listReader]
+    for file in fileList:
+      writeLog("Loading",file)
+      try:
+        if os.path.isdir(os.path.join(tempFolder, file)):
+          if os.path.exists(file): shutil.rmtree(file) #Remove it if exists already
+          shutil.copytree(os.path.join(tempFolder, file), file)
         else:
-          writeLog("Essential file failed to copy. Erroring")
-          raise FileNotFoundError("File "+file+" failed to copy")
-          #Now we load after all files are copied
-    except FileNotFoundError:
-      writeLog("Failed to find file")
-  for file in fileList:
-    if ".py" in file and (not initial or file != "mainServer.py"): #If its a thing we need to load
-      tempVar = importlib.import_module(file[:-3]) #Get a variable for the module (will load file if not loaded beforehand)(remove .py)
-      importlib.reload(tempVar) #Will reload module if the module was already loaded.
+          if os.path.exists(file): os.remove(file) #Remove the file before recopying
+          shutil.copy(os.path.join(tempFolder,file),file)
+          if os.path.exists(file):
+            writeLog(" "*7,file," confirmed to exist!")
+          else:
+            writeLog("Essential file failed to copy. Erroring")
+            raise FileNotFoundError("File "+file+" failed to copy")
+            #Now we load after all files are copied
+      except FileNotFoundError:
+        writeLog("Failed to find file")
+    for file in fileList:
+      if ".py" in file and (not initial or file != "mainServer.py"): #If its a thing we need to load
+        tempVar = importlib.import_module(file[:-3]) #Get a variable for the module (will load file if not loaded beforehand)(remove .py)
+        importlib.reload(tempVar) #Will reload module if the module was already loaded.
   
-  writeLog("Attempting to remove waste!")
-  shutil.rmtree(tempFolder, ignore_errors=True) #Get rid of waste
-  writeLog("Waste hopefully removed")
+  finally:
+    writeLog("Attempting to remove waste!")
+    os.remove(tempZip) #Get rid of the zip too
+    shutil.rmtree(tempFolder, ignore_errors=True) #Get rid of waste
+    writeLog("Waste hopefully removed")
 
 def main():
   #For just starting up
@@ -130,32 +132,35 @@ def main():
         file.write(": Exception!\r\n")
         traceback.print_exc(file = file)
       timesFailed += 1
-  
-    try:
-      #Start out by calling the main
-      writeLog("Starting Main")
-      import mainServer
-      mainServer.main()
-   
-      #Reset counter
-      timesFailed = 0
-    except Exception as E:
-      if isinstance(E, AssertionError):
-        writeLog("Successful Nice Completion")
-        return 0; #//Like C
-        
-      with open("mainLog.txt","a") as file:
-        file.write(getDateString())
-        file.write(": Exception!\r\n")
-        traceback.print_exc(file = file)
-      timesFailed += 1
-      writeLog("Exception #"+str(timesFailed))
-      
+    
+    else: #Only try starting the server if we imported something impproperly
+      try:
+        #Start out by calling the main
+        writeLog("Starting Main")
+        import mainServer
+        mainServer.main()
+     
+        #Reset counter
+        timesFailed = 0
+      except Exception as E:
+        if isinstance(E, AssertionError):
+          writeLog("Successful Nice Completion")
+          return 0; #//Like C
+          
+        with open("mainLog.txt","a") as file:
+          file.write(getDateString())
+          file.write(": Exception!\r\n")
+          traceback.print_exc(file = file)
+        timesFailed += 1
+        writeLog("Exception #"+str(timesFailed))
       
     #If did not succeed, wait
     if timesFailed > 0:
       writeLog("Unsuccessful Start. Times failed: ",timesFailed)
-      sleepWait = min(60 * 60, 60 * 2 ** timesFailed)
+      try: #Basically, it will first wait a minute, then 5 minutes twice, then half an hour, then an hour after that until the problem is fixed (the first value should never be called)
+        sleepWait = ([10, 60, 60*5, 60*5, 60*30])[timesFailed]
+      except IndexError:
+        sleepWait = 60*60
       writeLog("Sleeping for "+str(sleepWait)+" seconds")
       time.sleep(sleepWait) #If failed, will sleep for an exponentially long time
       
