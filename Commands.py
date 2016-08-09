@@ -193,6 +193,7 @@ class Command():
       
     self.recipient = fromString.strip()
     self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.sender #So it defaults to the sender if you do like "address" it should return your address
+    if not self.recipientObj: self.recipientObj = self.sender #It will also default to sender if we can't find any user (POTENTIALLY BAD)
   
   def do_version(self):
     with open("version.txt") as file:

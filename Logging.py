@@ -128,9 +128,9 @@ command   = Logger("CMD") #Debug for commands
 file      = Logger("FS") #Debugging relating to reading and writing files
 security  = Logger("SEC") #Information about authentification and such
 joke      = Logger("JOKE") #Information about the "Jokes" module
+analytics = Logger("RECORD") #Logging info relating to analytics and loggin (messages per day whatever)
 
 #Other
 save      = Logger("SAVE") #Debugging related to saving and loading files
-analytics = Logger("RECORD") #Logging info relating to numbers (messages per day whatever)
 error     = Logger("ERROR", defaultTag = "") #Information of errors that are not server-stopping, but bad
 unsafe    = Logger("SELF", writeToFile = False) #For debugging the debugging process

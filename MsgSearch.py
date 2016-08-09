@@ -24,6 +24,8 @@ def getSearcher(group):
     return searcher
 
 class Searcher():
+  searchesFolder = "MsgSearch" #The folder where all of the message archives are kept
+
   def __repr__(self):
     return "<MsgSearch."+type(self).__name__+" object for Group "+str(self.group.ID)+">"
     
@@ -39,7 +41,7 @@ class Searcher():
     
   def __init__(self, group):
     self.group = group #Which Searcher this is
-    self.fileName = Files.getGroupFileName(group, "messageLog")
+    self.fileName = Files.getFileName(Files.join(self.searchesFolder, "Group"+group.groupID))
     self._messageList = [] #This contains all known messages in chronological order. Values should all be standard strings
     self._hasLoaded = False
     
@@ -48,7 +50,7 @@ class Searcher():
   def save(self):
     if self._hasLoaded: #If hasn't loaded, nothing has changed yet (can't, hasn't been loaded)
       log.save.low("Saving",self)
-      with open(self.fileName, "wb") as file:
+      with Files.SafeOpen(self.fileName, "wb") as file:
         for message in self._messageList:
           file.write(json.dumps(message).encode("unicode_escape"))
           file.write(b"\r\n")
@@ -58,6 +60,7 @@ class Searcher():
       log.save.low("Loading",self)
       self._hasLoaded = True
       try:
+        log.debug("Looking for file: ", self.fileName)
         with open(self.fileName, "r", encoding = "unicode_escape") as file:
           for line in file:
             self._messageList.append(json.loads(line))
@@ -67,15 +70,15 @@ class Searcher():
   ### Interface Functions ###
           
   def appendMessage(self, message): #Only to be used externally. Saves automatically
-    log.command.debug("We are not appending messages for now") #They work, but we aren't generating them yet
-    return NotImplementedError("Not generating caches for now")
+    #log.command.debug("We are not appending messages for now") #They work, but we aren't generating them yet
+    #return NotImplementedError("Not generating caches for now")
   
     if not self._hasLoaded:
       self.load()
     if type(message) == str:
       message = json.loads(message) #In case its given as string
       
-    self._messageList.append(dict(message))
+    self._messageList.append(dict(message)) #To dict because it should be a Commands.Message object
     self.save()
     
   ### Cache Functions ###
@@ -84,18 +87,56 @@ class Searcher():
   def GenerateCache(self):
     self.load() #Loads if has not been loaded
     waitTime = 0.1 #0.1 Seconds between message batches
-    log.network("Searcher generating cache for Group " + str(self.group.ID))
+    log.analytics("Searcher generating cache for group " ,self.group)
     log.network.statePush(False) #There will be lots and lots of network traffic
     try:
-      lastID = self._messageList[-1]["id"]
+      toStopAtID = self._messageList[-1]["id"]
     except IndexError:
-      lastID = None #Indicates there are no messages
+      toStopAtID = None #Indicates there are no messages
     
-    #Placeholders
-    messageStack = []
-    lastMessage = {}
-    while False:
-      pass
+    #Because the cache is in ascending chronological order, we must make a seperate list of new messages, reverse, and then update the cache afterward
+    toPlace = []
+    shouldContinue = True #Used in message processing to signal we found our last found message
+    nextSearch = "" #The id to search from before_id next
+    startCount = 0 #These are used to see if any messages were sent while we were indexing
+    endCount   = 0 
+    while shouldContinue:
+      #We get the last 100 messages from groupMe. There isn't much difference in time getting a hundred vs getting one, so its not worth to check if we are up to date
+      #These messages come in in newest-oldest ordering
+      response = self.group.handler.get("/".join(("groups",self.group.groupID,"messages")), query = {"limit":100, "before_id":nextSearch})
+      if response.code == 200:
+        messageStack = response['messages']
+        nextSearch = messageStack[-1]['id']
+        endCount = response['count']
+        if not startCount: startCount = endCount #Only update if we haven't done any messages yet
+        for i in range(len(messageStack)):
+          if messageStack[i]['id'] == toStopAtID:
+            shouldContinue = False
+            messageStack = messageStack[:i] #Only add the messages we don't have yet
+            break
+        toPlace.extend(messageStack) #Add more messages to extend later (in newest-oldest order)
+        #Print out information on how many messages we have
+        log.analytics("Acquiring {:5} / {:5}".format(len(toPlace), response['count'] - len(self._messageList)))
+      elif response.code == 304: #If we have hit the end of messages
+        break #Don't need to do anything else now, just add what we have
+      elif response.code == 500:
+        log.analytics.low("Hit message limit, sleeping")
+        time.sleep(1) #This usually means we are sending too many messages at once
+      else:
+        raise RuntimeError("ERROR IN GENERATE CACHE: RECEIVED response.code " + str(response.code))
+        
+    #Getting here means we have collected all the messages we can
+    toPlace.reverse() #Get all messages to append in oldest-newest order
+    
+    #It's possible we want it this way if we ever do anything else in appending the message
+    #for message in toPlace: 
+    #  self.appendMessage(message)
       
-      
+    self._messageList.extend(toPlace) #Add all messages to cache
+    self.save()
+
     log.network.statePop() #Reset from false
+    
+    if startCount != endCount:
+      log.analytics("Messages were sent while updating messages, we'll have another go at it")
+      self.GenerateCache()

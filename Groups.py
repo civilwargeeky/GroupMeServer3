@@ -38,7 +38,7 @@ def getGroup(groupIdent):
     except KeyError:
       #If neither, return None
       return None
-  
+
 #Searches through Group's "groupDict" for SubGroups. Then checks if the subgroup has a parent that is the given group
 #PRE : group must be a "Group" object or derived class that is not a "SubGroup" or derived class
 #POST: If the group was a Group, returns a list of SubGroups with the group as a parent. Otherwise returns [] (empty list)
@@ -53,7 +53,14 @@ def getChildren(group):
   return toRet
   
 #POST: Returns a valid group if the file was valid. None otherwise
+_folderCache = {}
 def loadGroup(folder):
+  try:
+    loadedGroup = _folderCache[folder]
+    log.group("Group already loaded, returning group:", loadedGroup)
+    return loadedGroup
+  except KeyError:
+    pass #Just continue loading
   try:
     groupNumber = int(re.search("\d+", folder).group())
     log.group("Loading Group:", groupNumber)
@@ -63,7 +70,9 @@ def loadGroup(folder):
     with open(Files.getFileName(Files.join(folder, SAVE_FILE_NAME))) as file:
       groupType = Files.read(file)
       log.group("Group Type:",groupType)
-      return globals()[groupType](groupNumber).load(file) #Load arbitrary class
+      newGroup = globals()[groupType](groupNumber).load(file) #Load arbitrary class
+      _folderCache[folder] = newGroup #Save it to a cache so we cannot load twice
+      return newGroup
       #except (KeyError, TypeError, AttributeError) as Error: #I actually think I want this to be a halting error.
       #  log.error("Failed to properly load group file:", Error)
   except FileNotFoundError: #The group was improperly initialized/saved
@@ -183,6 +192,9 @@ class Group():
          #If the IP address has changed since the last server restart
         if Network.hasIPChanged() and self.botID != None: #We don't do getBot here because that could actually create a new bot
           self.handler.updateBots(self.getBot())
+          
+        #After all that is done, update the message list
+        MsgSearch.getSearcher(self).GenerateCache()
       except ConnectionError: #Indicates internet is down
         log.group.error("Failed to update users from web")
     else:
@@ -225,7 +237,7 @@ class Group():
     if Group.overlord:
       return Group.overlord
       
-    return self.getBotMaster(self)
+    return self.getBotMaster()
     
   def setOwner(self, user):
     if type(user) == str:
@@ -271,7 +283,6 @@ class Group():
     #Each group will get a "searcher" assigned it that loads all the group's messages and can search through them on command
     MsgSearch.getSearcher(self).appendMessage(message)
     
-    log.network.debug("Handling message: ", message)
     #log.network("Handling message: ", message) #Really want to see this for now while handling stuff
     
     self.buffer = ""
