@@ -190,8 +190,18 @@ class Group():
         #Must be done after handler initialized
         self.loadUsersFromWeb()
          #If the IP address has changed since the last server restart
-        if Network.hasIPChanged() and self.botID != None: #We don't do getBot here because that could actually create a new bot
-          self.handler.updateBots(self.getBot())
+        if self.bot != None: #We don't do getBot here because that could actually create a new bot
+          response = self.handler.getBotData()
+          if response:
+            try: #Filter out the bots for the one we have registered to this group
+              ownBot = [bot for bot in response if bot['bot_id'] == self.getBot()][0]
+            except IndexError: #If we haven't found one, we don't have a bot, and our data is faulty
+              log.group.web("No external bot found, creating new bot")
+              self.bot = self.handler.createBotsly()
+            else: #If the bot we found doesn't have the proper ip address, update it's ip address
+              if ownBot['callback_url'] != Network.getIPAddress():
+                log.group("IP has changed! Updating bot id")
+                self.handler.updateBots(self.getBot())
           
         #After all that is done, update the message list
         MsgSearch.getSearcher(self).GenerateCache()
@@ -261,10 +271,10 @@ class Group():
           log.group.error("COULD NOT GET BOT FOR GROUP", self.ID)
     return self.bot
 
-  def setBot(self, botID):
-    if type(botID) != str:
-      raise TypeError("botID for group " + repr(self) + " must be a str, got " + str(type(botID)))
-    self.bot = botID
+  def setBot(self, bot):
+    if type(bot) != str:
+      raise TypeError("bot for group " + repr(self) + " must be a str, got " + str(type(bot)))
+    self.bot = bot
     
   ##TODO
   #I'm not sure how I want to implement this while taking the userList into account.
@@ -739,3 +749,9 @@ def groupDailyDuties():
   log.group("Starting daily duties!")
   for group in getGroupList(MainGroup): #Go through all the MainGroups to check for events that have ended
     group.checkForEndedEvents()
+    
+  if Network.hasIPChanged():
+    log.group("IP has changed! Updating bots of all groups")
+    for group in getGroupList():
+      if group.bot:
+        group.handler.updateBots(group.bot)

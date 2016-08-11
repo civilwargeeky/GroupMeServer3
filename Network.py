@@ -17,7 +17,7 @@ import Users
 
 IP_ADDRESS = None #Will be set when we need a bot, and can be reset
 SERVER_CONNECTION_PORT = 7502
-IP_UPDATE_TIME         = 60*60*6 #6 Hours between checks
+IP_UPDATE_TIME         = 60*60*2 #2 Hours between checks
 _lastIPUpdateTime = 0
 
 #This is an object so that I can use "Response.code" and then just have the return object be a dict
@@ -271,33 +271,17 @@ class GroupMeHandler():
             return False
     log.network("Could not remove user")
     return False
-    
-  #WARNING: UNTIL A BOTS CLASS IS MADE, THIS WILL ONLY REMAKE BOTSLYS
-  def updateBots(self, botsList):
-    if type(botsList) == str:
-      botsList = [botsList]
-      
-    for bot in botsList[:1]: #...only doing the first one for now
-      log.net("Updating bot with ID",bot)
-      if self.deleteBot(bot):
-        log.net("Successfully deleted bot! (sleeping for them to update database)")
-        time.sleep(3) #Arbitrary time, should be more than enough
-        id = self.createBotsly()
-        if id:
-          self.bot = id #Update us
-          self.group.bot = id #Update our parent group
-          self.group.save()
-        else:
-          log.net.error("COULD NOT UPDATE BOT ON CREATE, ERRORING")
-          raise RuntimeError("COULD NOT CREATE BOT FOR UPDATE")
-      else:
-        log.net.error("COULD NOT UPDATE BOT, ERRORING")
-        raise RuntimeError("COULD NOT DELETE BOT FOR UPDATE")
-        
-    
-      
-    
+
   ### Bot Management Functions ###
+  
+  #Returns the list of bots associated with the group's botmaster
+  def getBotData(self):
+    response = self.get("bots")
+    if response.code == 200:
+      log.net.debug("Downloaded data for",len(response),"bots")
+      return [i for i in response.values()] #Because it returns a wierd dict of {0:{dictValue}, 1:{dictValue}...}
+    log.net.error("Failed to download bot data for", self.group)
+    return False
   
   def createBot(self, name, avatar = None, mainBot = True):
     log.net("Making a new bot for Group",self.group.ID)
@@ -330,6 +314,28 @@ class GroupMeHandler():
   def createBotsly(self):
     return self.createBot("Botsly McBottsworth", "http://i.groupme.com/300x300.jpeg.a49a6f825b5c4e1b885308005722b4f3")
     
+  #WARNING: UNTIL A BOTS CLASS IS MADE, THIS WILL ONLY REMAKE BOTSLYS
+  def updateBots(self, botsList):
+    if type(botsList) == str:
+      botsList = [botsList]
+      
+    for bot in botsList[:1]: #...only doing the first one for now
+      log.net("Updating bot with ID",bot)
+      if self.deleteBot(bot):
+        log.net("Successfully deleted bot! (sleeping for them to update database)")
+        time.sleep(3) #Arbitrary time, should be more than enough
+        id = self.createBotsly()
+        if id:
+          self.bot = id #Update us
+          self.group.bot = id #Update our parent group
+          self.group.save()
+        else:
+          log.net.error("COULD NOT UPDATE BOT ON CREATE, ERRORING")
+          raise RuntimeError("COULD NOT CREATE BOT FOR UPDATE")
+      else:
+        log.net.error("COULD NOT UPDATE BOT, ERRORING")
+        raise RuntimeError("COULD NOT DELETE BOT FOR UPDATE")
+        
   ### Group Info/Utility Functions ###
   
   def getUsers(self):
