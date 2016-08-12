@@ -155,12 +155,13 @@ class GroupMeHandler():
       log.net.error("Could not get bots list from web, code",response.code)
       return False
     
-  def message(self, method, url, query = {}, headers = {}, body = {}):
+  def message(self, method, url, query = {}, headers = {}, body = {}, addToken = True):
     if not self.getPoster():
       raise RuntimeError("ERROR: GroupMeHandler has no BotMaster from group " + str(self.group.ID))
       return None
       
-    query["token"] = self.getPoster() #Add in the token to all GroupMe communcations
+    if addToken:
+      query["token"] = self.getPoster() #Add in the token to all GroupMe communcations
     #Dump in the body as well
     response, code = self.connection.message(method, "/v3/" + url, query, headers, json.dumps(body) if body else None)
     if type(response) == str and "{" in response[:5]: #Things like deleting groups does not return a response, just a code
@@ -176,22 +177,29 @@ class GroupMeHandler():
     else:
       return Response().setCode(code)
     
-  def get(self, url, query = {}, headers = {}, body = None): return self.message("GET", url, query, headers, body)
-  def post(self, url, query = {}, headers = {}, body = None): return self.message("POST", url, query, headers, body)
+  def get(self, url, query = {}, headers = {}, body = None, addToken = True): return self.message("GET", url, query, headers, body, addToken)
+  def post(self, url, query = {}, headers = {}, body = None, addToken = True): return self.message("POST", url, query, headers, body, addToken)
   
   def getGroupData(self, extension = "", query = {}, headers = {}, body = None):
     return self.get("/".join(["groups",self.group.groupID,extension]), query, headers, body)
     
   ### Group I/O Functions ###
-  def _write(self, message, image = None): #This method is for messages guarenteed to be less than 1000 characters in length
+  def _write(self, message, image = None, attemptRectify = True): #This method is for messages guarenteed to be less than 1000 characters in length
     log.net.low("Bot writing message:", message)
     bot = self.getBot()
     if not bot:
       raise RuntimeError("Group " + str(self.group.ID) + " could not acquire a bot for message writing")
-    response = self.post("bots/post", body = {"text":str(message), "bot_id":bot, "attachments":([] if not image else [{"type":"image","url":image}])})
+    response = self.post("bots/post", body = {"text":str(message), "bot_id":bot, "attachments":([] if not image else [{"type":"image","url":image}])}, addToken = False)
     if response.code == 202:
       log.net("Message write successful")
       return True
+    elif response.code == 404 and attemptRectify:
+      log.net.error("Message write failed. Probable bot ID mismatch. Fixing")
+      if self.rectifyBot():
+        return self._write(message, image, attemptRectify = False) #We only want to attempt to rectify once
+      else:
+        log.net.error("Rectification attempt failed. Cannot post message")
+        return False
     else:
       log.net.error("MESSAGE WRITE FAILED:",response.code)
       return False
@@ -242,7 +250,6 @@ class GroupMeHandler():
     
   def changePosterName(self, newName):
     return self.post("/".join(["groups", self.group.groupID, "memberships","update"]), body = {"membership": {"nickname":newName}})
-    #Do this, have random chance on group Creation to change name to Tester McTestosterone
     
   def addUsers(self, userList):
     if type(userList) != list:
@@ -313,6 +320,23 @@ class GroupMeHandler():
     
   def createBotsly(self):
     return self.createBot("Botsly McBottsworth", "http://i.groupme.com/300x300.jpeg.a49a6f825b5c4e1b885308005722b4f3")
+    
+  #This function will attempt to reset the group's bot to the proper bot id
+  def rectifyBot(self):
+    log.net("Attempting to rectify main bot of",self.group)
+    botInfo = self.getBotData()
+    if botInfo:
+      for bot in botInfo:
+        #If the bot is the proper full bot for our group
+        if bot['group_id'] == self.group.groupID and bot['callback_url'] == getIPAddress():
+          self.bot = bot['bot_id']
+          self.group.bot = bot['bot_id']
+          self.group.save()
+          log.net("Rectify success")
+          return True
+    else:
+      log.net("Rectify failure")
+      return False
     
   #WARNING: UNTIL A BOTS CLASS IS MADE, THIS WILL ONLY REMAKE BOTSLYS
   def updateBots(self, botsList):

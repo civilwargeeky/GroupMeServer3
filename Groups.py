@@ -55,6 +55,8 @@ def getChildren(group):
 #POST: Returns a valid group if the file was valid. None otherwise
 _folderCache = {}
 def loadGroup(folder):
+  if type(folder) == int:
+    folder = "Group "+str(folder)
   try:
     loadedGroup = _folderCache[folder]
     log.group("Group already loaded, returning group:", loadedGroup)
@@ -379,6 +381,7 @@ class Group():
   #"basic" save should be used only during __init__, to make sure that the group exists so it's type can be read
   def save(self): #Method for saving a group and its data
     log.save("Saving:", self)
+    log.debug("BOT HERE:", self.bot)
     with Files.SafeOpen(self.filePath, "w") as file:
       file.write(type(self).__name__+"\n")
       self._save(file)
@@ -391,7 +394,7 @@ class Group():
     Files.loadAttrTable(self, fileHandle)
     return self
 
-    
+
 class MainGroup(Group):
   def __init__(self, ID = None, groupMeID = None):
     super().__init__(ID, groupMeID)
