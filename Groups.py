@@ -198,8 +198,12 @@ class Group():
             try: #Filter out the bots for the one we have registered to this group
               ownBot = [bot for bot in response if bot['bot_id'] == self.getBot()][0]
             except IndexError: #If we haven't found one, we don't have a bot, and our data is faulty
-              log.group.web("No external bot found, creating new bot")
-              self.bot = self.handler.createBotsly()
+              log.group.web("No external bot found, rectifying/creating new bot")
+              if not self.handler.rectifyBot(response):
+                self.bot = self.handler.createBotsly()
+                if not self.bot:
+                  log.error("Could not get bot for", self)
+                  raise RuntimeError("BOT SHOULD EXIST FOR " + repr(self) + " BUT COULD NOT BE FOUND")
             else: #If the bot we found doesn't have the proper ip address, update it's ip address
               if ownBot['callback_url'] != Network.getIPAddress():
                 log.group("IP has changed! Updating bot id")

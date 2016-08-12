@@ -322,9 +322,9 @@ class GroupMeHandler():
     return self.createBot("Botsly McBottsworth", "http://i.groupme.com/300x300.jpeg.a49a6f825b5c4e1b885308005722b4f3")
     
   #This function will attempt to reset the group's bot to the proper bot id
-  def rectifyBot(self):
+  def rectifyBot(self, botData = None):
     log.net("Attempting to rectify main bot of",self.group)
-    botInfo = self.getBotData()
+    botInfo = botData or self.getBotData() #will use given data if it exists
     if botInfo:
       for bot in botInfo:
         #If the bot is the proper full bot for our group
