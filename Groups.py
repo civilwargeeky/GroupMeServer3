@@ -11,6 +11,7 @@ import re
 import time
 
 import Commands
+import Events
 import Files
 import Jokes
 import Logging as log
@@ -542,6 +543,10 @@ class MainGroup(Group):
       log.group("We already have a group for this event. Not creating group")
       return self.eventGroups[eventData['event_id']] #Group has been created. it just already exists
     #else
+    
+    if Events.IS_TESTING:
+      return None #If testing we can't create
+    
     log.group("Creating new event group!")
     groupOwner = self.getSubGroupMaster()
     self.handler.poster = groupOwner #A little hacky, but whatevs

@@ -1,9 +1,12 @@
 #Interface for lock objects and timers
 
 import datetime
+import os
 import threading
 
 import Logging as log
+
+IS_TESTING = os.path.basename(os.getcwd()) in ["test","dev"]
 
 class Holder:
   pass
@@ -16,6 +19,12 @@ def getLockObject():
     holder._lockObj = threading.Lock()
   return holder._lockObj
   
+#I'm not sure why I used a holder object above... rather than just having a lock object here
+NonBlockingShutdownLock = threading.Lock() #This is so processes can tell the server to shutdown
+NonBlockingRestartLock  = threading.Lock() #This is so processes can tell the server to restart
+
+def quickDaemonThread(function):
+  threading.Thread(target = function, daemon = True).start()
   
 #The following functions are so we can nicely clean up threads in between server updates because I don't n
 _threadList = []
@@ -27,11 +36,57 @@ def deregisterThread(thread):
   if thread in _threadList:
     _threadList.pop(_threadList.index(thread))
     
-#This is a cleanup action and no threads will work anymore
+#This is a cleanup action and no timers will work anymore
 def stopAllTimers():
   log.event("Stopping all timers")
   for thread in _threadList:
     thread.cancel()
+    
+    
+#These are for saving all groups who have added messages at once (not during message processing so responses are fast always)
+_SyncSave_ = None #This is the actual object
+def SyncSave():
+  global _SyncSave_
+  if not _SyncSave_:
+    _SyncSave_ = _SyncSave()
+  return _SyncSave_ #Return the object we have
+
+class _SyncSave:
+  def __init__(self, interval = 60):
+    self.interval = interval #Interval between saves in seconds
+    self._objects = [] #The list of all object we have
+    
+    self.timer = None
+    #Start a timer that runs every so many seconds
+    self.resetTimer()
+  
+  def resetTimer(self):
+    if self.timer:
+      self.timer.cancel()
+      deregisterThread(self.timer) #Stop tracking it
+      del self.timer #Remove reference (I guess this is good, probably not necessary)
+      
+    self.timer = threading.Timer(self.interval, self.saveAll)
+    registerThread(self.timer)
+    self.timer.start()
+  
+  def addObject(self, object):
+    if object in self._objects:
+      return None #Don't worry if we already have it
+    self._objects.append(object)
+    
+  def saveAll(self, final = False):
+    try:
+      if len(self._objects): # if != 0
+        log.event("Saving all messages for",len(self._objects),"group"+("s" if len(self._objects) > 1 else ""))
+        while len(self._objects): #While there are still objects in the list
+          object = self._objects.pop() #Take it off and use it
+          object._save() #_save must be a function that DOES NOT CALL addObject
+    finally: #Whether or not we are successful, add another timer
+      if not final:
+        self.resetTimer()
+    
+    
   
 class PeriodicUpdater():
   #A peridodic updater takes a referenceTime time (say, 2 a.m.) and a timedelta (say, 1 week or 1 day)

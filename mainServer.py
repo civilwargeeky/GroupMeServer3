@@ -19,7 +19,6 @@
 import io
 import json
 import http.server
-import os
 import traceback
 from datetime import time, timedelta
 from urllib.parse import urlparse
@@ -36,15 +35,25 @@ import Groups
 import Users
 
 #Globals
-SERVER_KEEPS_RUNNING     = True
-IS_TESTING               = os.path.basename(os.getcwd()) in ["test","dev"]
-SEND_ERRORS_OVER_GROUPME = True #not IS_TESTING
+SEND_ERRORS_OVER_GROUPME = True #not Events.IS_TESTING
+
+class ServerStopError(Exception): #Just to let us know what has been done in messages
+  def getValue(self):
+    try:
+      return self.args[0]
+    except:
+      return True
 
 #This is mostly the same, but I want custom error logging
 class Server(http.server.HTTPServer): 
 
+  def __init__(self, *arg, **kwarg):
+    super().__init__(*arg, **kwarg)
+    self.exitValue = None #Defaults to not set
+
   def handle_error(self, request, client_address):
     Events.getLockObject().release() #Release the lock we have on message processing
+    
     stringBuffer = io.StringIO()
     traceback.print_exc(file = stringBuffer)
     stringBuffer.seek(0) #Reset to start of message
@@ -75,7 +84,21 @@ class Server(http.server.HTTPServer):
     if lock:
       print("Acquiring lock for message processing") #Honestly I don't want to log this, but if I come look at the screen I would want to see this
       lock.acquire()
-    super().finish_request(request, client_address)
+    super().finish_request(request, client_address) #Actually processes the message
+    
+    if not Events.NonBlockingShutdownLock.acquire(blocking = False):
+      self.exitValue = False
+      log.info.debug("Request indicates shutdown. Shutting down server")
+      Events.quickDaemonThread(self.shutdown) #Because shutdown does a "wait" for the current request to end and causes deadlock
+    Events.NonBlockingShutdownLock.release() #Release once checked
+    
+    if not Events.NonBlockingRestartLock.acquire(blocking = False):
+      self.exitValue = True
+      log.info.debug("Request indicates restart. Shutting down server")
+      Events.quickDaemonThread(self.shutdown) #Because shutdown does a "wait" for the current request to end and causes deadlock
+    Events.NonBlockingRestartLock.release() #Release once checked
+    
+    
     if lock:
       lock.release()
     
@@ -243,14 +266,20 @@ def main():
     earlyMorningFacts = Events.PeriodicUpdater(time(3, 0), timedelta(1), postEarlyMorningFact)
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
-    while SERVER_KEEPS_RUNNING:
-      try:
-        server.serve_forever()
-      except KeyboardInterrupt:
-        break
-    
+    try:
+      server.serve_forever()
+    except KeyboardInterrupt:
+      pass
+      
+    if server.exitValue != None: #Value of none means exited due to KeyboardInterrupt or something else
+      log.info("Server shutting down from user input")
+      if server.exitValue: #Exit value true means restart
+        return 0;
+      else: #False means shutdown
+        raise AssertionError("Signal to main that we are done")
+      
     #TESTING CODE:
-    if IS_TESTING:
+    if Events.IS_TESTING:
       import traceback
       while True:
         print("> ", end = "")
@@ -270,6 +299,7 @@ def main():
   #We need to kill all threads before exiting
   finally:
     Events.stopAllTimers()
+    Events.SyncSave().saveAll(final = True)
   
     
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 
 import re
 
+import Events
 import Groups #For type comparison
 import Jokes  #For joke object getting
 import Logging as log
@@ -148,7 +149,7 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection" \
+                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "shutdown", "restart" \
                      ]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
@@ -284,10 +285,11 @@ class Command():
       if baseAddress:
         toRet += "Addresses for " + user.getName() + ":\n"
         toRet += "--" + baseAddress + "\n"
-        for modifier in Commands.Command.addressModifiers: #Goes through all possible address types
+        for modifier in Command.addressModifiers: #Goes through all possible address types
           subAddress = user.getAddress(modifier)
           if subAddress:
             toRet += "--" + modifier.title() + ": " + subAddress + "\n"
+    return toRet
     
   #do_joke objects will have a special ".jokeHandler" attribute
   #because spcifier can be an int, this also uses "details" if we have a variant of standard joke
@@ -450,3 +452,14 @@ class Command():
       return "Love you " + command.sender.getName() + u" \u2764"
     else:
       return u"Love you \u2764"
+      
+  def do_restart(self): pass
+  def do_shutdown(self): pass
+  
+  def handle_restart(command):
+    Events.NonBlockingRestartLock.acquire(blocking = False)
+    log.command("SIGNALLING SERVER RESTART")
+    
+  def handle_shutdown(command):
+    Events.NonBlockingShutdownLock.acquire(blocking = False)
+    log.command("SIGNALLING SERVER SHUTDOWN")

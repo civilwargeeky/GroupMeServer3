@@ -8,6 +8,7 @@ import json #For loading and dumping messages to file
 import time
 
 import Commands
+import Events
 import Files
 import Logging as log
 
@@ -42,16 +43,27 @@ class Searcher():
   def __init__(self, group):
     self.group = group #Which Searcher this is
     self.fileName = Files.getFileName(Files.join(self.searchesFolder, "Group"+group.groupID))
+    #Will only be set on load. This is the groupID of the parent group 
+    self.parentID = None #(stored because many groups we save messages for groups that no longer exist on GroupMe)
     self._messageList = [] #This contains all known messages in chronological order. Values should all be standard strings
     self._hasLoaded = False
     
   ### File Functions ###
     
-  def save(self):
+  def _save(self):
     if self._hasLoaded: #If hasn't loaded, nothing has changed yet (can't, hasn't been loaded)
       log.save.low("Saving",self)
       with Files.SafeOpen(self.fileName, "w") as file:
+        try:
+          Files.write(file, self.group.parent.groupID)
+        except AttributeError:
+          Files.write(file, "0") #In any case where there is no parent
+        #Then write all messages
         json.dump(self._messageList, file)
+        
+  #For saving, just add self to the list of objects to be saved
+  def save(self):
+    Events.SyncSave().addObject(self)
   
   def load(self):
     if not self._hasLoaded:
@@ -60,12 +72,13 @@ class Searcher():
       try:
         log.debug("Looking for file: ", self.fileName)
         with open(self.fileName, "r") as file:
+          self.parentID = Files.read(file)
           self._messageList = json.load(file)
       except FileNotFoundError:
         log.save.debug("No file found for",self,", not loading")
-          
+  
   ### Interface Functions ###
-          
+
   def appendMessage(self, message): #Only to be used externally. Saves automatically
     #log.command.debug("We are not appending messages for now") #They work, but we aren't generating them yet
     #return NotImplementedError("Not generating caches for now")
