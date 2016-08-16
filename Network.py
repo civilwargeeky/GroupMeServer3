@@ -319,21 +319,28 @@ class GroupMeHandler():
     return response.code == 200
     
   def createBotsly(self):
-    return self.createBot("Botsly McBottsworth", "http://i.groupme.com/300x300.jpeg.a49a6f825b5c4e1b885308005722b4f3")
+    success = self.createBot("Botsly McBottsworth", "http://i.groupme.com/300x300.jpeg.a49a6f825b5c4e1b885308005722b4f3")
+    if success: return success #If we just created a new botsly
+    #Otherwise, it is likely false due to 400 (already exists error), and we will attempt to rectify
+    return self.rectifyBot(saveData = False) #If our bot was created but not returned (known issue), check to see if it actually exists
     
   #This function will attempt to reset the group's bot to the proper bot id
-  def rectifyBot(self, botData = None):
+  #if saveData is False, will return the bot_id on success instead of just True
+  def rectifyBot(self, botData = None, saveData = True):
     log.net("Attempting to rectify main bot of",self.group)
     botInfo = botData or self.getBotData() #will use given data if it exists
     if botInfo:
       for bot in botInfo:
         #If the bot is the proper full bot for our group
         if bot['group_id'] == self.group.groupID and bot['callback_url'] == getIPAddress():
-          self.bot = bot['bot_id']
-          self.group.bot = bot['bot_id']
-          self.group.save()
           log.net("Rectify success")
-          return True
+          if saveData:
+            self.bot = bot['bot_id']
+            self.group.bot = bot['bot_id']
+            self.group.save()
+            return True
+          else:
+            return bot['bot_id']
     else:
       log.net("Rectify failure")
       return False

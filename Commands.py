@@ -153,7 +153,7 @@ class Command():
                      ]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
-                          "called":"name", "love me":"human affection"})
+                          "called":"name", "love":"human affection"})
     
     self.group = group
     self.message = commandString
@@ -445,11 +445,15 @@ class Command():
         
     
   def do_human_affection(self):
-    pass
+    log.command("Searching for human affection")
+    self.recipientObj = self.group.users.getUser(self.leftString + " " + self.rightString)
     
   def handle_human_affection(command):
-    if command.sender:
-      return "Love you " + command.sender.getName() + u" \u2764"
+    toSend = command.sender
+    if command.recipientObj:
+      toSend = command.recipientObj
+    if toSend:
+      return "Love you " + toSend.getName() + u" \u2764"
     else:
       return u"Love you \u2764"
       

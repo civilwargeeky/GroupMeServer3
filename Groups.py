@@ -415,31 +415,32 @@ class MainGroup(Group):
   def postInit(self):
     super().postInit()
     
-    #We need to scan the group for new events that we don't have
-    log.group.debug(self,"checking for events")
-    
-    events = self.handler.getEvents()
-    if events:
-      #Check if we need to create groups
-      for event in events:
-        if event['event_id'] not in self.eventGroups:
-          log.group.debug("Creating new event group for event", event['name'])
-          group = self.newEventGroup(event)
-          if not group:
-            log.group.error("COULD NOT MAKE NEW EVENT GROUP FOR EVENT", event," in ",self)
-        else:
-          log.group.debug("Group exists, updating group")
-          self.eventGroups[event['event_id']].updateEvent(event) #If it already exists, give it new information
-       
-      #Check if we need to delete groups for events that no longer exist
-      idList = [event['event_id'] for event in events]
-      for event in list(self.eventGroups.keys()):
-        if event not in idList:
-          log.group.debug("Event no longer exists, trying to delete")
-          self.eventGroups[event].deleteSelf()
-          
-    #Check if we need to delete groups for events that are over
-    self.checkForEndedEvents()
+    if not Events.IS_TESTING:
+      #We need to scan the group for new events that we don't have
+      log.group.debug(self,"checking for events")
+      
+      events = self.handler.getEvents()
+      if events:
+        #Check if we need to create groups
+        for event in events:
+          if event['event_id'] not in self.eventGroups:
+            log.group.debug("Creating new event group for event", event['name'])
+            group = self.newEventGroup(event)
+            if not group:
+              log.group.error("COULD NOT MAKE NEW EVENT GROUP FOR EVENT", event," in ",self)
+          else:
+            log.group.debug("Group exists, updating group")
+            self.eventGroups[event['event_id']].updateEvent(event) #If it already exists, give it new information
+         
+        #Check if we need to delete groups for events that no longer exist
+        idList = [event['event_id'] for event in events]
+        for event in list(self.eventGroups.keys()):
+          if event not in idList:
+            log.group.debug("Event no longer exists, trying to delete")
+            self.eventGroups[event].deleteSelf()
+            
+      #Check if we need to delete groups for events that are over
+      self.checkForEndedEvents()
     
   #Note: If a user leaves the mainGroup, the user's eventGroup counterparts will have no knowledge of the user's address, token, or other data
   def removeUser(self, userObj):

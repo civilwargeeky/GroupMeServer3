@@ -141,25 +141,7 @@ class ServerHandler(http.server.BaseHTTPRequestHandler):
         else:
           log.info.error("No group found associated with",message.group_id)
   
-    """
-    #Old stuff
-    if (fromGroupMe):
-      Groups.EventGroups.checkGroups()
-      if userMessage:
-        User.RecordAnalytics()
-        MsgSearch.RecordMessage()
-        Commands.MakeCommmand(Message)
-        doCommandStuff(NetInterface)
-      else: #Bot message
-        if (relatedToEvents):
-          Groups.EventGroups.updateGroups()
-        elif (relatedToNames):
-          Groups.this.Users.updateName
-      
-    else:
-      doWebStuff(message
-    """
-      
+
   def do_GET(self): #For web requests
     pass
     
@@ -230,36 +212,37 @@ def main():
   groupFam  = makeNamedGroup(2, "13972393", put)
   groupFam.setBot("cfe41d49a83d73874f4aa547b9")
   
-  log.info("========== POST-INIT ==========")
-  for group in list(Groups.getSortedList()): group.postInit()
-  
-      
-  log.info("========== GROUP CLEANUP ==========")
-  deletionList = Groups.getSortedList()
-  deletionList.reverse()
-  for i in deletionList.copy():
-    if i.markedForDeletion:
-      log.info("Deleting group", i)
-      i.deleteSelf()
-      del i
-  del deletionList
-  
-  """
-  if not testGroup.eventGroups: #If no event groups
-    eventGroup = testGroup.newEventGroup({'name':"Test Event Group!", "event_id":"5556677", "going":["27094908","28354834"]})
-  else:
-    eventGroup = list(testGroup.eventGroups.values())[0]
-  """
-  
-  def postEarlyMorningFact():
-    joke = Jokes.funFacts.getJoke()
-    if type(joke) == tuple:
-      return Jokes.funFacts._postJoke(groupFam, ("Oh boy 3 A.M.!\n"+joke[0], joke[1]))
-    return Jokes.funFacts._postJoke(groupFam, "Oh boy 3 A.M.!\n" + joke)
-  
-  server = Server(('', Network.SERVER_CONNECTION_PORT), ServerHandler)
-  
-  try:
+  try: #This is so we can have our finally block remove any extra threads in case of error
+    
+    log.info("========== POST-INIT ==========")
+    for group in list(Groups.getSortedList()): group.postInit()
+    
+        
+    log.info("========== GROUP CLEANUP ==========")
+    deletionList = Groups.getSortedList()
+    deletionList.reverse()
+    for i in deletionList.copy():
+      if i.markedForDeletion:
+        log.info("Deleting group", i)
+        i.deleteSelf()
+        del i
+    del deletionList
+    
+    """
+    if not testGroup.eventGroups: #If no event groups
+      eventGroup = testGroup.newEventGroup({'name':"Test Event Group!", "event_id":"5556677", "going":["27094908","28354834"]})
+    else:
+      eventGroup = list(testGroup.eventGroups.values())[0]
+    """
+    
+    def postEarlyMorningFact():
+      joke = Jokes.funFacts.getJoke()
+      if type(joke) == tuple:
+        return Jokes.funFacts._postJoke(groupFam, ("Oh boy 3 A.M.!\n"+joke[0], joke[1]))
+      return Jokes.funFacts._postJoke(groupFam, "Oh boy 3 A.M.!\n" + joke)
+    
+    server = Server(('', Network.SERVER_CONNECTION_PORT), ServerHandler)
+    
     #Update things for the groups every day at 5 a.m.
     log.info("Starting daily triggers")
     updaterDaily = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
@@ -285,7 +268,9 @@ def main():
         print("> ", end = "")
         try:
           statement = input()
-          if "=" in statement:
+          if statement.lower() == "quit":
+            break
+          elif "=" in statement:
             exec(statement)
           else:
             print(eval(statement))
