@@ -9,6 +9,20 @@ import Network
 
 defaultDefaultJoke = "Could not get a fact"
 
+#Post jokes that the user is subscribed to
+def postReleventJokes(user, text):
+  for title in BaseJoke._jokeObjects:
+    try:
+      if user.data[BaseJoke._dictString][title]: #If the user is subscribed to this
+        if BaseJoke._jokeObjects[title].postSubscription(user, text): #Post the joke for this user
+          log.joke.debug("Posted subscription joke of type", title) #Log whether joke was actually posted or not
+        else:
+          log.joke.debug("Did not post subscription joke of type", title)
+    except KeyError:
+      pass
+    
+postReleventFacts = postReleventJokes
+
 #BaseJoke just acts an interface, describing what methods jokse should have
 class BaseJoke():
 
@@ -22,6 +36,7 @@ class BaseJoke():
   
   ### ALL SUBCLASSES OF JOKE MUST CALL super() TO ADD THEM TO THE LIST ###
   def __init__(self, title):
+    #Title should be a human-readable name for the joke object
     self.title = title
     self._jokeObjects[title] = self
     
@@ -57,7 +72,7 @@ class BaseJoke():
   def postJoke(self, group, *arg):
     joke = self.getJoke(*arg)
     return self._postJoke(group, joke)
-      
+  
   postFact = postJoke #Alias
     
   #Posts a joke in response to a subscriber message
@@ -67,17 +82,23 @@ class BaseJoke():
     
   #Handles changing some sort of data so that the given user is subscribed to fact. When that user sends a message, postSubscription will be called with the text of their post
   #PRE : user is the User that posted the message, text is the text of the message the user sent
+  #POST: Returns True if user subscribed, False otherwise
   def handleSubscribe(self, user, text):
     if self._dictString not in user.data:
       user.data[self._dictString] = {}
     user.data[self._dictString][self.title] = True
     user.save()
+    return True
   
   #PRE : user is the User that posted the message, text is the text of the message the user sent
+  #POST: Returns True if user was unsubscribed, False if not allowed to unsubscribe, and None if not subscribed in the first place
   def handleUnsubscribe(self, user, text):
     try:
-      user.data[self._dictString][self.title] = False
+      if not user.data[self._dictString][self.title]:
+        return None #If we weren't subscribed already
+      del user.data[self._dictString][self.title]
       user.save()
+      return True
     except KeyError: #If we get KeyError, this joke was never set in the first place
       pass
     
@@ -87,20 +108,6 @@ class BaseJoke():
       return user.data[self._dictString][self.title]
     except KeyError: #If KeyError, joke was never set for this person
       return False
-    
-  #Post jokes that the user is subscribed to
-  @staticmethod
-  def postReleventFacts(user, text):
-    for title in BaseJoke._jokeObjects:
-      try:
-        if user.data[BaseJoke._dictString][title]: #If the user is subscribed to this
-          if BaseJoke._jokeObjects[title].postSubscription(user.group, text): #Post the joke for this user
-            log.joke.debug("Posted subscription joke of type", title) #Log whether joke was actually posted or not
-          else:
-            log.joke.debug("Did not post subscription joke of type", title)
-      except KeyError:
-        pass
-      
 
 class JokeWebsiteParser(html.parser.HTMLParser):
   def __init__(self):
@@ -257,13 +264,15 @@ class SimpleFact(SimpleJoke):
     return self.makeMessageFun(joke)
     
   def postSubscription(self, user, text):
-    addString = "\nText '@Botsly unsubscribe from "+self.title+"s' at any time to unsubscribe"
-    joke = self.getJoke()
-    if type(joke) == tuple:
-      joke = ((joke[0] + addString), joke[1])
-    else:
-      joke += addString
-    return self._postJoke(user.group, joke)
+    toSearch = self.title.split()[0].lower()
+    if re.search(r"\b"+toSearch+r"s?\b", text): #If we found the "fact word" in their message (with optional s)
+      addString = "\nFound " + toSearch + " in message!\nText '@Botsly unsubscribe from "+self.title+"s' at any time to unsubscribe"
+      joke = self.getJoke()
+      if type(joke) == tuple:
+        joke = ((joke[0] + addString), joke[1])
+      else:
+        joke += addString
+      return self._postJoke(user.group, joke)
     
 #RedditFacts will get the most recent posts from reddit and return them (possibly with attached pictures) as "Facts" from a phony phone number
 #Inherits SimpleFileJoke for all the File methods, and SimpleFact for makeMessageFun

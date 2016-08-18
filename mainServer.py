@@ -19,6 +19,7 @@
 import io
 import json
 import http.server
+import socketserver #For the threading mixin
 import traceback
 from datetime import time, timedelta
 from urllib.parse import urlparse
@@ -36,7 +37,7 @@ import Users
 import Website
 
 #Globals
-SEND_ERRORS_OVER_GROUPME = True #not Events.IS_TESTING
+SEND_ERRORS_OVER_GROUPME = False #not Events.IS_TESTING
 
 class ServerStopError(Exception): #Just to let us know what has been done in messages
   def getValue(self):
@@ -85,6 +86,7 @@ class Server(http.server.HTTPServer):
     if lock:
       print("Acquiring lock for message processing") #Honestly I don't want to log this, but if I come look at the screen I would want to see this
       lock.acquire()
+      print("Acquired lock")
       
     try:
       super().finish_request(request, client_address) #Actually processes the message
@@ -108,7 +110,7 @@ class Server(http.server.HTTPServer):
       lock.release()
     
 
-class ServerHandler(http.server.BaseHTTPRequestHandler):
+class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHandler):
   def getContent(self):
     try:
       return self.rfile.read(int(self.headers.get('Content-Length'))).decode("UTF-8")
@@ -196,7 +198,8 @@ def main():
   #Just things
   #log.network.debug.disable()
   log.command.low.enable()
-  """
+  log.user.low.enable()
+  
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")
   toLoadList = []
@@ -248,8 +251,8 @@ def main():
         i.deleteSelf()
         del i
     del deletionList
-    """
-  try:
+    
+  #try:
     def postEarlyMorningFact():
       joke = Jokes.funFacts.getJoke()
       if type(joke) == tuple:

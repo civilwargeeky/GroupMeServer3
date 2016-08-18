@@ -56,15 +56,14 @@ class Handler:
     self.group = Groups.getGroup(int(groupNum.group(1))) if groupNum else None
     
     #log.debug("Group: ", self.group)
-    log.net("New Handler for Url:   ", self.url)
+    log.net.low("New Handler for Url: ", self.url)
     
   def handle(self):
     fileName = os.path.normpath(self.url.path)
-    #log.debug("Requesting file:",fileName,"'")
+    log.net("File Requested: '"+fileName+"'")
     return self.sendFile(fileName)
     
   def existsFile(self, path):
-    print("Exists:", os.path.exists(path))
     return os.path.exists(path) and os.path.isfile(path)
     
   def yieldFile(self, path):

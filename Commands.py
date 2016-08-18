@@ -7,6 +7,7 @@ import Events
 import Groups #For type comparison
 import Jokes  #For joke object getting
 import Logging as log
+import Network #For IP getting
 
 class Message(dict):
   
@@ -231,6 +232,9 @@ class Command():
   
   def do_help(self):
     return
+    
+  def handle_help(command):
+    return "Try out the website! " + Network.getIPAddress()
   
   addressModifiers = ["college"]
   
@@ -293,7 +297,9 @@ class Command():
     
   #do_joke objects will have a special ".jokeHandler" attribute
   #because spcifier can be an int, this also uses "details" if we have a variant of standard joke
+  #Uses verbs: get, subscribe, unsubscribe
   def do_joke(self):
+    self.verb = "get"
     if findWord(["types","kinds","categories"], self.leftString + " " + self.rightString): #If these are in either
       self.specifier = "type"
       return #Don't do anything else
@@ -311,26 +317,51 @@ class Command():
     
     if self.jokeHandler == Jokes.joke:
       self.details = jokeIdentifier
+      
+    #Subscription fun!
+    if findWord("subscribe", self.leftString):
+      self.verb = "subscribe"
+      self.setRecipient(self.leftString)
+    elif findWord("unsubscribe", self.leftString):
+      self.verb = "unsubscribe"
+      self.setRecipient(self.leftString)
      
   def handle_joke(command):
-    if command.specifier == "type":
-      return "Joke Types: " + " | ".join((joke + "s") for joke in Jokes.BaseJoke._jokeObjects if joke != "regular") #Join all the joke types in the dictionary
-    else:
-      toRet = ""
-      numJokes = 1
-      if command.specifier == "some":
-        numJokes = random.randint(2,5) #Between 2 and 4
-      elif type(command.specifier) == int:
-        numJokes = min(max(1, command.specifier), 7) #Between 1 and 7
-        
-      if command.jokeHandler == Jokes.joke:
-        for i in range(numJokes):
-          toRet += Jokes.joke.getJoke(command.details) + "\n" #Add a joke to the buffer since it is just text. The details is possible category
+    if command.verb == "get":
+      if command.specifier == "type":
+        return "Joke Types: " + " | ".join((joke + "s") for joke in Jokes.BaseJoke._jokeObjects if joke != "regular") #Join all the joke types in the dictionary
       else:
-        for i in range(numJokes):
-          command.jokeHandler.postJoke(command.group) #Otherwise just post the jokes by themselves
+        toRet = ""
+        numJokes = 1
+        if command.specifier == "some":
+          numJokes = random.randint(2,5) #Between 2 and 4
+        elif type(command.specifier) == int:
+          numJokes = min(max(1, command.specifier), 7) #Between 1 and 7
           
-      return toRet
+        if command.jokeHandler == Jokes.joke:
+          for i in range(numJokes):
+            toRet += Jokes.joke.getJoke(command.details) + "\n" #Add a joke to the buffer since it is just text. The details is possible category
+        else:
+          for i in range(numJokes):
+            command.jokeHandler.postJoke(command.group) #Otherwise just post the jokes by themselves
+            
+        return toRet
+    elif command.verb == "subscribe":
+      if command.recipientObj:
+        if command.jokeHandler.handleSubscribe(command.recipientObj, command.message):
+          return "Subscribing '" + command.recipientObj.getName() + "' to " + command.jokeHandler.title+"s!"
+        else:
+          return "Could not subscribe '" + command.recipientObj.getName() + "' to " + command.jokeHandler.title+"s"
+    elif command.verb == "unsubscribe":
+      if command.recipientObj:
+        ret = command.jokeHandler.handleUnsubscribe(command.recipientObj, command.message)
+        if ret:
+          return "'" + command.recipientObj.getName() + "' unsubscribed from " + command.jokeHandler.title + "s"
+        elif ret == None:
+          return "'" + command.recipientObj.getName() + "' was not subscribed to " + command.jokeHandler.title + "s in the first place..."
+        else:
+          return "'" + command.recipientObj.getName() + "' failed to unsubscribe from " + command.jokeHandler.title + "s"
+          
       
   def do_name(self):
     filter = ["is", "was", "and"]
