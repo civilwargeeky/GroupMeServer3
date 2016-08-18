@@ -192,6 +192,8 @@ class Group():
       try:
         #Must be done after handler initialized
         self.loadUsersFromWeb()
+        if self.markedForDeletion:
+          raise AssertionError("Group is marked for deletion, not trying to update bots")
          #If the IP address has changed since the last server restart
         if self.bot != None: #We don't do getBot here because that could actually create a new bot
           response = self.handler.getBotData()

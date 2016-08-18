@@ -1,0 +1,113 @@
+body {
+  font-family: Courier, sans-serif;
+  color: #00ff00;
+  background-color: #000000;
+}
+
+h1 {
+  font-size: 14pt;
+  font-weight: normal;
+}
+
+a.Index{
+  line-height:1.5;
+}
+a:link {
+  color: #00ff00;
+}
+a:visited {
+  color: #00ff00;
+}
+a:hover {
+  color: cyan;
+}
+
+button {
+  color: #00ff00;
+  background-color: #000000;
+  border-color: #00ff00;
+}
+
+select {
+  color: #00ff00;
+  background-color: #000000;
+  border-color: #00ff00;
+  border-style: dotted; 
+  border-width: medium;
+}
+
+option {  
+  color: #00ff00;
+  background-color: #000000;
+  border-color: #00ff00;
+}
+
+input {
+  color:#0f0;
+  background-color: #000;
+  border-color: #0f0;
+}
+
+input.password {
+  border-top:none;
+  border-left:none;
+  border-right:none;
+  border-bottom: solid;
+}
+
+input.submit {
+  border: outset;
+  border-width: 2pt;
+  border-color: #0f0;
+}
+
+body.Search{
+  font-size: small;
+}
+
+.SearchContainer {
+  max-height: 48px;
+}
+.SearchFocus {
+  border-color: aqua;
+  display:table-row !important;
+  max-height: none !important;
+}
+.SearchLeft{
+  /*white-space: nowrap;*/
+  width: 15%;
+  height: 48px;
+  max-width: 120px;
+}
+.SearchPicture {
+  vertical-align: middle;
+  width: 48px;
+}
+.SearchRight {
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+  max-height: inherit;
+}
+.SearchResults {
+  max-height: inherit;
+}
+
+.Hidden {
+  display: none;
+}
+
+p.HelpTitle {
+  border: 1pt solid;
+  margin: 0px;
+  font-size: 20px
+}
+
+.UsageList {
+   margin-top: 10px;
+}
+
+.UsagePoint {
+  margin: 0px;
+  padding-left: 10px;
+}

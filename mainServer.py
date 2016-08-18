@@ -33,6 +33,7 @@ import Logging as log
 import Network
 import Groups
 import Users
+import Website
 
 #Globals
 SEND_ERRORS_OVER_GROUPME = True #not Events.IS_TESTING
@@ -57,7 +58,7 @@ class Server(http.server.HTTPServer):
     stringBuffer = io.StringIO()
     traceback.print_exc(file = stringBuffer)
     stringBuffer.seek(0) #Reset to start of message
-    errorMessage = stringBuffer.read().replace("\\n","\r\n")
+    errorMessage = bytes(stringBuffer.read(), "utf-8").decode("unicode_escape").replace("\n","\r\n")
     log.error("==== ERROR OCCURRED IN SERVER. PRINTING ERROR ====")
     log.error(errorMessage) #Output the message to logging
     
@@ -84,7 +85,11 @@ class Server(http.server.HTTPServer):
     if lock:
       print("Acquiring lock for message processing") #Honestly I don't want to log this, but if I come look at the screen I would want to see this
       lock.acquire()
-    super().finish_request(request, client_address) #Actually processes the message
+      
+    try:
+      super().finish_request(request, client_address) #Actually processes the message
+    except ConnectionAbortedError:
+      log.net.debug("Of note: Connection Aborted")
     
     if not Events.NonBlockingShutdownLock.acquire(blocking = False):
       self.exitValue = False
@@ -104,22 +109,29 @@ class Server(http.server.HTTPServer):
     
 
 class ServerHandler(http.server.BaseHTTPRequestHandler):
+  def getContent(self):
+    try:
+      return self.rfile.read(int(self.headers.get('Content-Length'))).decode("UTF-8")
+    except TypeError:
+      return self.rfile.read().decode("UTF-8")
+      
+  def getParsedPath(self):
+    return urlparse(self.path)
+
   def do_POST(self, messageOverride = None): #For GroupMe messages and server passwords
-    
-    
     if messageOverride:
       #Allow us to test without stealing the other server
-      messageString = messageOverride
+      messageBody = messageOverride
     else:
       #Read all info from web response
-      messageString = self.rfile.read(int(self.headers.get('Content-Length'))).decode("UTF-8")
+      messageBody = self.getContent()
       
     try: #Block differentiating between groupMe responses and website messages
-      message = json.loads(messageString)
+      message = json.loads(messageBody)
     except json.decoder.JSONDecodeError: #Failure is a website request and not a GroupMe request
-      parsedURL = urlparse(messageString)
+      log.info.debug("Received a normal http POST message")
+      parsedURL = self.getParsedPath()
       Website.handleRequest("POST", parsedURL, self.headers) #Give web request with the message and headers
-      #DON'T FORGET: SEND A RESPONSE
     else: #Success is for a groupMe message
       log.info.debug("Received GroupMe Message")
       ### Note: The way to implement headers is "send_response, send_header, send_header..., end_headers"
@@ -143,8 +155,15 @@ class ServerHandler(http.server.BaseHTTPRequestHandler):
   
 
   def do_GET(self): #For web requests
-    pass
-    
+    log.info.debug("Received a normal http GET message")
+    parsedURL = self.getParsedPath()
+    try:
+      Website.handleRequest("GET", parsedURL, self.headers, self) #Give web request with the message and headers
+    except Exception as e:
+      self.send_response(500) #Internal server error
+      self.end_headers()
+      raise e #And GTFO
+  
   #Log who the request was from
   def log_request(self, code="-",size="-"):
     pass
@@ -177,7 +196,7 @@ def main():
   #Just things
   #log.network.debug.disable()
   log.command.low.enable()
-
+  """
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")
   toLoadList = []
@@ -215,7 +234,9 @@ def main():
   try: #This is so we can have our finally block remove any extra threads in case of error
     
     log.info("========== POST-INIT ==========")
-    for group in list(Groups.getSortedList()): group.postInit()
+    for group in list(Groups.getSortedList()): 
+      try: group.postInit()
+      except AssertionError: pass
     
         
     log.info("========== GROUP CLEANUP ==========")
@@ -227,14 +248,8 @@ def main():
         i.deleteSelf()
         del i
     del deletionList
-    
     """
-    if not testGroup.eventGroups: #If no event groups
-      eventGroup = testGroup.newEventGroup({'name':"Test Event Group!", "event_id":"5556677", "going":["27094908","28354834"]})
-    else:
-      eventGroup = list(testGroup.eventGroups.values())[0]
-    """
-    
+  try:
     def postEarlyMorningFact():
       joke = Jokes.funFacts.getJoke()
       if type(joke) == tuple:
@@ -276,7 +291,8 @@ def main():
             print(eval(statement))
         except Exception as e:
           if isinstance(e, KeyboardInterrupt) or isinstance(e, EOFError):
-            break
+            from os import _exit
+            _exit(0) #Screw this crap, just get out of here. It's only for testing
           else:
             traceback.print_exc()
           

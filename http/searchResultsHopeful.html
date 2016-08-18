@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Search Results</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="util.js"></script>
+  </head>
+  <body>
+
+    <table><tr><td><a href="/"><img src="favicon.ico" ></a></td><td style="padding:10px"><h1>Search Results:</h1></td></tr></table>
+
+    <table border="5" width="100%">
+      <tr>
+        <td class="SearchLeft">GroupFam<br>1/30/16</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          I am test message LoL!
+          </div></td>
+      </tr>
+      <tr>
+        <td class="SearchLeft">GroupFam<br>1/7/16</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          Hehe I am also test message!
+          </div></td>
+      </tr>
+      <tr>
+        <td class="SearchLeft">TestGroup<br>12/29/15</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          This was a message in another group that is being tested here and we will all see what is going on and what happens if the stuff goes outside the limit of the box it is only designed to hold to hold three lines of stuff and should not move but what if it does then that is very bad stop this
+          </div></td>
+      </tr>
+      <tr class="SearchContainer Hidden" id="5 0">
+        <td class="SearchLeft">GroupFam<br>4/30/15</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          Quite Close in time to the other one
+          </div></td>
+      </tr>
+      <tr class = "SearchContainer" id="5">
+        <td class="SearchLeft">GroupFam<br>4/30/15</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          Another message here. Picture maybe?<br>And how about<br>some other stuff<br>too
+          </div></td>
+      </tr>
+      <tr class="SearchContainer Hidden" id="5 1">
+        <td class="SearchLeft">GroupFam<br>4/30/15</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          I am a message in close proximity
+          </div></td>
+      </tr>
+      <tr>
+        <td class="SearchLeft">GroupFam<br>4/20/Blaze</td>
+        <td class="SearchPicture"><img class = "SearchPicture" src="favicon.ico"></td>
+        <td class="SearchRight"><div class="SearchResults">
+          But what goes here?
+          </div></td>
+      </tr>
+    </table>
+
+    <script>
+      window.onload = function() {
+        //This goes through all the things and sets their onclick function
+        var elements = document.getElementsByTagName("tr")
+        console.log("Starting Thing");
+        for (i in elements) {
+          console.log(elements[i].className);
+          if (elements[i].className) {
+            elements[i].onclick=function () {
+              if (!this.id) {return false;}
+              console.log("Click engaged!");
+              console.log("Element Clicked: ",this.id);
+              //This is so its the same no matter what
+              var main = document.getElementById(/\d+/.exec(this.id)[0]);
+              toggleClass(main, "SearchFocus");
+              var i = 0;
+              while (document.getElementById(main.id+" "+i) !== null) {
+                console.log("Getting: ", main.id[0]+" "+i);
+                toggleClass(document.getElementById(main.id+" "+i), "SearchFocus");
+                i += 1;
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+  </body>
+</html>

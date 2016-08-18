@@ -67,6 +67,7 @@ class _SyncSave:
       del self.timer #Remove reference (I guess this is good, probably not necessary)
       
     self.timer = threading.Timer(self.interval, self.saveAll)
+    self.timer.daemon = True #Screw not being able to close the prompt
     registerThread(self.timer)
     self.timer.start()
   
