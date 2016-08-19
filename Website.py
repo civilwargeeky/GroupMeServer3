@@ -36,10 +36,10 @@ def securitySave():
 
 def handleRequest(method, parsedUrl, headers, handler):
   if method == "POST":
-    log.net.debug("Handling POST")
+    #log.net.debug("Handling POST")
     return PostHandler(parsedUrl, headers, handler).handle()
   elif method == "GET":
-    log.net.debug("Handling GET")
+    #log.net.debug("Handling GET")
     return GetHandler(parsedUrl, headers, handler).handle()
   else:
     log.net.error("Cannot handle request of type", method)
@@ -47,6 +47,7 @@ def handleRequest(method, parsedUrl, headers, handler):
 class Handler:
   NO_PATH      = "noFile.html"
   DEFAULT_PATH = "index.html"
+  requestsProcessed = 0 #Reset every time server starts
 
   def __init__(self, parsedUrl, headers, handler):
     self.handler = handler
@@ -60,7 +61,8 @@ class Handler:
     
   def handle(self):
     fileName = os.path.normpath(self.url.path)
-    log.net("File Requested: '"+fileName+"'")
+    Handler.requestsProcessed += 1
+    log.net("File Requested: '"+fileName+"' (#"+str(Handler.requestsProcessed)+")")
     return self.sendFile(fileName)
     
   def existsFile(self, path):

@@ -117,7 +117,7 @@ def main():
   #  updateFiles(True)
   
   timesFailed = 0
-    
+  
   while True:
   
     #Always try to first update all the files

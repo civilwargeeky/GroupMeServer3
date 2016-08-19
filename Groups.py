@@ -334,7 +334,8 @@ class Group():
       self.handler.write(self.buffer.rstrip())
       
     #Post all facts the user may be subscribed to
-    Jokes.postReleventJokes(self.users.getUserFromID(message.user_id), message.text)
+    if message.sender_type == "user": #Only if it is user, not system
+      Jokes.postReleventJokes(self.users.getUserFromID(message.user_id), message.text)
     
   #This is for things specific to a certain type of group. Like handling events for MainGroups
   #NOTE FOR SUBCLASSES: Subclasses should do super() after their own handling

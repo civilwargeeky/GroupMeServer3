@@ -59,7 +59,7 @@ class Server(http.server.HTTPServer):
     stringBuffer = io.StringIO()
     traceback.print_exc(file = stringBuffer)
     stringBuffer.seek(0) #Reset to start of message
-    errorMessage = bytes(stringBuffer.read(), "utf-8").decode("unicode_escape").replace("\n","\r\n")
+    errorMessage = stringBuffer.read().replace("\n","\r\n")
     log.error("==== ERROR OCCURRED IN SERVER. PRINTING ERROR ====")
     log.error(errorMessage) #Output the message to logging
     
