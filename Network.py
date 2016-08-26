@@ -45,7 +45,7 @@ class Connection():
     currTime = time.time() #So we don't have any time resolution issues
     if self.lastRequest and (currTime-self.lastRequest < self.messageSplitTime):
       time_ = self.messageSplitTime - (currTime-self.lastRequest)
-      log.network("Too many messages, waiting", time_)
+      log.network.debug("Too many messages, waiting", time_)
       time.sleep(time_)
     queryString = ""
     if self.https: #Initialize an HTTP connection object
@@ -57,8 +57,8 @@ class Connection():
     if query: 
       queryString = "?" + urlencode(query, safe=":")
       log.network.low("Query:", queryString)
-    if headers: log.network("Headers:", headers)
-    if body: log.network("Body:", body)
+    if headers: log.network.debug("Headers:", headers)
+    if body: log.network.debug("Body:", body)
     try:
       handle.request(method, extension+queryString, body = (body.encode(self.encoding) if body else None), headers = headers)
       self.lastRequest = time.time() #Set the time when we finished the last request

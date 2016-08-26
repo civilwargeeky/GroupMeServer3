@@ -22,8 +22,6 @@ import http.server
 import socketserver #For the threading mixin
 import traceback
 from datetime import time, timedelta
-from urllib.parse import urlparse
-
 
 #My Imports
 import Commands
@@ -37,7 +35,7 @@ import Users
 import Website
 
 #Globals
-SEND_ERRORS_OVER_GROUPME = False #not Events.IS_TESTING
+SEND_ERRORS_OVER_GROUPME = True #not Events.IS_TESTING
 
 class ServerStopError(Exception): #Just to let us know what has been done in messages
   def getValue(self):
@@ -116,9 +114,6 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
       return self.rfile.read(int(self.headers.get('Content-Length'))).decode("UTF-8")
     except TypeError:
       return self.rfile.read().decode("UTF-8")
-      
-  def getParsedPath(self):
-    return urlparse(self.path)
 
   def do_POST(self, messageOverride = None): #For GroupMe messages and server passwords
     if messageOverride:
@@ -132,8 +127,7 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
       message = json.loads(messageBody)
     except json.decoder.JSONDecodeError: #Failure is a website request and not a GroupMe request
       log.info.debug("Received a normal http POST message")
-      parsedURL = self.getParsedPath()
-      Website.handleRequest("POST", parsedURL, self.headers) #Give web request with the message and headers
+      Website.handleRequest("POST", self) #Give web request with the message and headers
     else: #Success is for a groupMe message
       log.info.debug("Received GroupMe Message")
       ### Note: The way to implement headers is "send_response, send_header, send_header..., end_headers"
@@ -158,9 +152,8 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
 
   def do_GET(self): #For web requests
     log.info.debug("Received a normal http GET message")
-    parsedURL = self.getParsedPath()
     try:
-      Website.handleRequest("GET", parsedURL, self.headers, self) #Give web request with the message and headers
+      Website.handleRequest("GET", self) #Give web request with the message and headers
     except Exception as e:
       self.send_response(500) #Internal server error
       self.end_headers()
@@ -196,9 +189,9 @@ def main():
   Groups.Group.overlord = tokenList[1]
   
   #Just things
-  #log.network.debug.disable()
-  log.command.low.enable()
-  log.user.low.enable()
+  log.network.debug.disable() #Suppress the return value of every message
+  #log.command.low.enable() #For going through all the commands every time we get a command
+  #log.user.low.enable() #For going through all the users every time we search for a user
   
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")

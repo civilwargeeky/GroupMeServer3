@@ -391,7 +391,7 @@ corgiFacts    = RedditFact("Corgi Pic", "corgi", "Corgis are strong, independent
 
 
 ### Include filters and name modules
-funFacts.addFactFilter(lambda string: re.sub("[HAFF]","", string, re.I).lstrip())
+funFacts.addFactFilter(lambda string: re.sub("[H?A?FF]","", string, re.I).lstrip())
 
 def ignoreMeta(title):
   if re.search("\[meta\]", title, re.I):

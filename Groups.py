@@ -288,8 +288,8 @@ class Group():
   ##TODO
   #I'm not sure how I want to implement this while taking the userList into account.
   #Because the userList makes userMimics on add, but we just have the dict when we add, and I don't want to mess with the dict
-  def addUser(self):
-    pass
+  #def addUser(self):
+  #  pass
     
   #This is for internal removing of users
   #In this class, because MainGroups need to check their subgroups on user removal
@@ -370,12 +370,16 @@ class Group():
       log.group.error("Group no longer exists. Recommend deleting group",self.ID)
      
     if groupData.code == 200:
-      loadedList = []
-      self.setName(groupData['name'])
+      loadedList = [] #List of objects to check
+      updateList = [] #This is just a list of names
+      self.setName(groupData['name']) #Store the name the group has for future reference
       for user in groupData['members']:
-        log.group.web("Loading user", '"'+user['nickname']+'"')
+        #log.group.web("Updating user", '"'+user['nickname']+'"')
+        updateList.append(user['nickname'])
         userObj = self.users.updateUser(user)
         loadedList.append(userObj)
+        
+      log.group.web("Users loaded:", ",".join(updateList))
         
       for userObj in self.users.userList.copy():
         if userObj not in loadedList:

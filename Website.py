@@ -4,6 +4,7 @@ import http.client
 import json
 import re
 import os
+from urllib.parse import urlparse
 
 import Files
 import Groups
@@ -49,10 +50,10 @@ class Handler:
   DEFAULT_PATH = "index.html"
   requestsProcessed = 0 #Reset every time server starts
 
-  def __init__(self, parsedUrl, headers, handler):
+  def __init__(self, handler):
     self.handler = handler
-    self.url     = parsedUrl
-    self.headers = headers
+    self.url     = urlparse(handler.path)
+    self.headers = handler.headers
     groupNum = re.search("\AGroup (\d+)", self.url.path.lstrip("/"))
     self.group = Groups.getGroup(int(groupNum.group(1))) if groupNum else None
     
@@ -79,7 +80,7 @@ class Handler:
   #This will actually do the sending of the response over a handler
   #headers is response headers to send along with the request, NOT THE HEADERS WE GOT
   def sendFile(self, path, code = http.client.OK, headers = {}):
-    path = path.strip("\\") #Strip these from both sides or else things mess up
+    path = path.strip(os.sep) #Strip these slashes from both sides or else things mess up
     if not path: #If the path is blank
       return self.redirectFile(self.DEFAULT_PATH, headers)
       
