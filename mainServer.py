@@ -35,7 +35,7 @@ import Users
 import Website
 
 #Globals
-SEND_ERRORS_OVER_GROUPME = True #not Events.IS_TESTING
+SEND_ERRORS_OVER_GROUPME = not Events.IS_TESTING
 
 class ServerStopError(Exception): #Just to let us know what has been done in messages
   def getValue(self):

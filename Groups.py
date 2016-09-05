@@ -127,8 +127,8 @@ def getGroupList(groupType = None):
     raise TypeError("getGroupList expected a groupType inherited from Group, got " + str(groupType))
   
           
-def getSortedList():
-  return sorted(getGroupList(), key = Group.getID)
+def getSortedList(key = None):
+  return sorted(getGroupList(), key = key or Group.getID) #key or ... because cannot put Group. in argument list as group does not exist yet
 
 #A "Group" represents an interface for a "base" group. So a "Group" object will keep track of all the data and users and references and subgroups that a group has.
 #Group is also the network interface for all tasks that a group could do
@@ -161,6 +161,7 @@ class Group():
   def __init__(self, ID = None, groupID = None): #groupID is the GroupMe groupID, not internal (ID is internal)
     self.groupID = groupID
     self.name = None
+    self.image = None
     #The owner is not necessary, but if there are multiple users with tokens, this will resolve issues
     self.owner = None #The owner is a token of the owner user
     self.bot   = None #This is the group's bot id that it uses to post messages
@@ -373,6 +374,8 @@ class Group():
       loadedList = [] #List of objects to check
       updateList = [] #This is just a list of names
       self.setName(groupData['name']) #Store the name the group has for future reference
+      try: self.image = groupData['image_url'] #Try to get this if it exists (should exist, can't be bothered to check)
+      except KeyError: pass
       for user in groupData['members']:
         #log.group.web("Updating user", '"'+user['nickname']+'"')
         updateList.append(user['nickname'])
@@ -401,7 +404,7 @@ class Group():
     return self
 
   def _save(self, writeHandle): #This is where you have class specific saving things.
-    Files.saveAttrTable(self, writeHandle, ["groupID", "name", "owner", "bot", "analytics", "commands"])
+    Files.saveAttrTable(self, writeHandle, ["groupID", "name","image", "owner", "bot", "analytics", "commands"])
       
   def load(self, fileHandle): #Can load necessary data from file here
     Files.loadAttrTable(self, fileHandle)
@@ -687,7 +690,6 @@ class EventGroup(SubGroup):
   def __init__(self, ID = None, groupMeID = None, parent = None):
     super().__init__(ID, groupMeID, parent)
     self.end_at = None
-    self.image = None
 
     
   ### Event Functions ###
@@ -753,7 +755,7 @@ class EventGroup(SubGroup):
     
   def _save(self, handle):
     super()._save(handle)
-    Files.saveAttrTable(self, handle, ['end_at','image'])
+    Files.saveAttrTable(self, handle, ['end_at'])
     
   def load(self, handle):
     super().load(handle)
