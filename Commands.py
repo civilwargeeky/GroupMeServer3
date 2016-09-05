@@ -234,7 +234,7 @@ class Command():
     return
     
   def handle_help(command):
-    return "Try out the website! " + Network.getIPAddress()
+    return "Try out the website! " + Network.getIPAddress() + "\n(Password: "+command.group.getPassword()+")"
   
   addressModifiers = ["college"]
   

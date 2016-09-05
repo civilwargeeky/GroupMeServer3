@@ -240,6 +240,9 @@ class Group():
   def getID(self):
     return self.ID
     
+  def getPassword(self):
+    return "testPassword"
+    
   ### Group Functions ###
     
   def getBotMaster(self): #Return the first available BotMaster

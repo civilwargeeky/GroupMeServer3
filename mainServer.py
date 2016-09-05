@@ -127,6 +127,7 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
       message = json.loads(messageBody)
     except json.decoder.JSONDecodeError: #Failure is a website request and not a GroupMe request
       log.info.debug("Received a normal http POST message")
+      self.body = messageBody #We actually need this...
       Website.handleRequest("POST", self) #Give web request with the message and headers
     else: #Success is for a groupMe message
       log.info.debug("Received GroupMe Message")
@@ -228,12 +229,12 @@ def main():
   groupFam.setBot("cfe41d49a83d73874f4aa547b9")
   
   try: #This is so we can have our finally block remove any extra threads in case of error
-    
+    """
     log.info("========== POST-INIT ==========")
     for group in list(Groups.getSortedList()): 
       try: group.postInit()
       except AssertionError: pass
-    
+    """
         
     log.info("========== GROUP CLEANUP ==========")
     deletionList = Groups.getSortedList()
@@ -256,7 +257,8 @@ def main():
     
     #Update things for the groups every day at 5 a.m.
     log.info("Starting daily triggers")
-    updaterDaily = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
+    updaterDaily      = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
+    updaterWebsite    = Events.PeriodicUpdater(time(4,58), timedelta(1), lambda _: Website.securityPurge()) #Just do this seperately
     earlyMorningFacts = Events.PeriodicUpdater(time(3, 0), timedelta(1), postEarlyMorningFact)
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")

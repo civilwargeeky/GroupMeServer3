@@ -4,33 +4,76 @@ import http.client
 import json
 import re
 import os
-from urllib.parse import urlparse
+from time import time
+from urllib.parse import urlparse, parse_qs
+from uuid import uuid4
 
 import Files
 import Groups
 import Logging as log
 ### CONFIG AREA ###
-ID_LIFETIME = datetime.timedelta(days = 3)
-ID_FILE     = Files.getFileName("Server_IDs")
+ID_LIFETIME = datetime.timedelta(days = 3).total_seconds() #We will tell to store cookie forever, but if its older than this we require a new sign-in
+ID_FILE     = Files.getFileName("Server_UUIDs")
 DEFAULT_DIR = "http"
 
 ### SECURITY MODULE ###
 """The security module handles keeping track of uuids sent to the website in a request of web resources"""
-_idDict = {}
+#The _idDict is a dict of uuid : tuple(last page access, [list of group IDs allowed in])
+_idDict = None
+#This goes through all uuids and checks their last time
+def securityPurge():
+  global _idDict
+  if _idDict == None: securityLoad()
+  timeNow = int(time())
+  for user in _idDict.copy():
+    if timeNow > _idDict[user][0] + ID_LIFETIME: #If the user has not logged for however long
+      del _idDict[user] #Remove them from the list
+  securitySave()
+
 def securityLoad():
   global _idDict
   try:
-    with Files.SafeOpen(ID_FILE, "r") as file:
+    with open(ID_FILE, "r") as file:
       log.save("Loading ID file")
       _idDict = json.load(file)
+    #Once file loaded, purge all non-existing IDs
+    securityPurge()
   except (FileNotFoundError, json.decoder.JSONDecodeError):
+    _idDict = {}
     log.save("ID file not found, using none")
   
 def securitySave():
   log.save("Saving ID file")
-  with Files.SafeOpen(ID_FILE, "w") as file:
+  with open(ID_FILE, "w") as file:
     json.dump(_idDict, file)
     
+def securityCanAccess(uuid, groupNum):
+  if _idDict == None: securityLoad()
+  if groupNum == None:
+    return True #If doesn't belong to a group, always true
+  if uuid == None:
+    return False #Otherwise if has no idea, always false
+    
+  try:
+    return groupNum in _idDict[uuid][1] #Return true if the user has this group saved, otherwise false
+  except KeyError:
+    return False #If the ID no longer exists, return false
+    
+#Makes a new UUID, adds it to the list of UUIDs, returns it
+def securityRegister(uuid, groupNum):
+  global _idDict
+  if _idDict == None: securityLoad()
+  try:
+    _idDict[uuid][1].append(groupNum)
+    _idDict[uuid][0] = int(time())
+    return uuid
+  except KeyError:
+    uuid = str(uuid4())
+    #Create a new entry
+    _idDict[uuid] = [int(time()), [groupNum, ]]
+    return uuid
+  finally:
+    securitySave()
     
     
 ### REQUEST HANDLING ###
@@ -49,10 +92,10 @@ def handleRequest(method, handler):
 class Handler:
   NO_PATH      = "noFile.html"
   DEFAULT_PATH = "selectionScreen.html"
-  GEN_PATH     = Files.getFileName("GEN_FILES", prefix = "")
   ENCODING     = "utf-8"
   STR_CONTENT  = "%content%"
   STR_TITLE    = "%title%"
+  ID_COOKIE    = "user_id"
   requestsProcessed = 0 #Reset every time server starts
   
   #A generated file will have two strings in it, a "%title%" and a "%content%" so that the page can be properly generated
@@ -78,6 +121,7 @@ class Handler:
       with open(cls.GEN_PATH) as file:
         cls.genFiles = json.load(file)
         log.web("Successfully loaded GEN_PATH files!")
+        log.debug(cls.genFiles)
     except FileNotFoundError:
       log.web.error("Could not find GEN_PATH file!")
       raise FileNotFoundError("Could not find {} file!".format(cls.GEN_PATH)) from None #Also should be breaking
@@ -94,6 +138,7 @@ class Handler:
     Handler.requestsProcessed += 1
     log.net("File Requested: '{}' (#{})".format(self.fileName, Handler.requestsProcessed))
     
+    #Checking for a group folder
     try:
       splitPath = os.path.split(self.fileName)
       log.debug("Split path:",splitPath)
@@ -103,12 +148,26 @@ class Handler:
     except ValueError: #Not part of a group
       group = None
       
+    #Checking for user authorization
+    cookies = http.cookies.BaseCookie(self.handler.headers['cookie'])
+    try:
+      self.userID = cookies[self.ID_COOKIE].value
+      log.debug("ID:",self.userID)
+      log.debug("Can Access:", securityCanAccess(self.userID, group))
+    except KeyError:
+      self.userID = None
+    if not securityCanAccess(self.userID, group) and not self.fileName.endswith("password.html"):
+      log.security("User not allowed to access", self.fileName+", returning password page")
+      return self.redirectFile(group, "password.html")
+      
+    #Checking for generated files
     if self.fileName in self.genFiles:
       try:
         method = getattr(self, "do_"+self.fileName.split(".")[0]) #Get the fileName before .html
-        return method(group) #Call the function, passing in what group to call
       except AttributeError:
         log.web.error("No Generation Function for path",self.fileName) #Otherwise just return the basic file and log error
+      else: #Don't want to catch errors from these
+        return method(group) #Call the function, passing in what group to call
     
     return self.sendFile(group, self.fileName)
     
@@ -164,9 +223,24 @@ class Handler:
     return self.sendFile(group, self.NO_PATH, code = http.client.FOUND, headers = headers)
     
 class PostHandler(Handler):
-  pass
+  GEN_PATH     = Files.getFileName("GEN_POST_FILES", prefix = "")
+  
+  def do_password(self, groupNum):
+    queries = parse_qs(self.handler.body)
+    try:
+      log.debug(queries["pass"][0])
+      if queries['pass'][0] == Groups.getGroup(groupNum).getPassword():
+        id = securityRegister(self.userID, groupNum)
+        self.redirectFile(groupNum, "index.html", {"Set-Cookie":self.ID_COOKIE+"="+id})
+      else:
+        self.sendFile(groupNum, "password.html") #Just send nothing
+    except (KeyError, IndexError):
+      log.web.debug("No Password Sent")
+
   
 class GetHandler(Handler):
+  GEN_PATH     = Files.getFileName("GEN_GET_FILES", prefix = "")
+
   def do_selectionScreen(self, _): #We don't care for group
     log.web.debug("Sending Selection Screen")
     basicFile = self.loadFile(self.genFiles[self.fileName])
