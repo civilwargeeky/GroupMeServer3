@@ -1,1 +1,1 @@
-{"selectionScreen.html": "selectionScreen.html"}
+["selectionScreen.html"]

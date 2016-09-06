@@ -12,6 +12,7 @@
 #Actually, mainServer put into a main function. Shouldn't matter anymore...
 
 import datetime
+import io
 import time
 import traceback
 import os.path
@@ -150,9 +151,25 @@ def main():
         with open("mainLog.txt","a") as file:
           file.write(getDateString())
           file.write(": Exception!\r\n")
-          traceback.print_exc(file = file)
+          stringBuffer = io.StringIO()
+          traceback.print_exc(file = stringBuffer)
+          stringBuffer.seek(0) #Reset to start of message
+          file.write(stringBuffer.read())
+          stringBuffer.seek(0)
         timesFailed += 1
         writeLog("Exception #"+str(timesFailed))
+        """EXPERIMENTAL PART"""
+        #Will hopefully work
+        print("Writing error to GroupMe")
+        import http.client, json
+        handle = http.client.HTTPSConnection("api.groupme.com")
+        handle.request("POST","/v3/bots/post", body = json.dumps({"text":stringBuffer.read().replace("\n","\r\n"), "bot_id":"a2052a0c5f5337ee4087219100"}).encode("utf-8"))
+        response = handle.getresponse()
+        print("Code:   ", response.getcode())
+        print("Body:   ", response.read().decode("utf-8"))
+        print("Headers:", response.getheaders())
+        handle.close()
+        """END EXPERIMENTAL PART"""
       
     #If did not succeed, wait
     if timesFailed > 0:

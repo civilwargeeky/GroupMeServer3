@@ -211,7 +211,10 @@ class Group():
             else: #If the bot we found doesn't have the proper ip address, update it's ip address
               if ownBot['callback_url'] != Network.getIPAddress():
                 log.group("IP has changed! Updating bot id")
-                self.handler.updateBots(self.getBot())
+                if not Events.IS_TESTING:
+                  self.handler.updateBots(self.getBot())
+                else:
+                  log.group("JK WE'RE NOT UPDATING THE BOT BECAUSE THIS BREAKS THE MAIN SERVER")
           
         #After all that is done, update the message list
         MsgSearch.getSearcher(self).GenerateCache()

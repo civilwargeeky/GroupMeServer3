@@ -229,12 +229,12 @@ def main():
   groupFam.setBot("cfe41d49a83d73874f4aa547b9")
   
   try: #This is so we can have our finally block remove any extra threads in case of error
-    """
+    
     log.info("========== POST-INIT ==========")
     for group in list(Groups.getSortedList()): 
       try: group.postInit()
       except AssertionError: pass
-    """
+    
         
     log.info("========== GROUP CLEANUP ==========")
     deletionList = Groups.getSortedList()

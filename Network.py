@@ -64,7 +64,7 @@ class Connection():
       self.lastRequest = time.time() #Set the time when we finished the last request
     except socket.gaierror:
       log.network.error("Wow. The internet is down. Well that's a problem")
-      raise ConnectionError("Inernet Down. Please Check Connection")
+      raise ConnectionError("Internet Down. Please Check Connection")
       
     response = handle.getresponse()
     data, code = response.read().decode("utf-8"), response.getcode()
