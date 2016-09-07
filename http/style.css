@@ -61,6 +61,13 @@ input.submit {
   border-color: #0f0;
 }
 
+.AddressLeft{
+  padding:5px;
+  vertical-align:middle;
+  text-align: center;
+  width:1%
+}
+
 body.Search{
   font-size: small;
 }

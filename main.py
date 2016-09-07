@@ -160,14 +160,14 @@ def main():
         writeLog("Exception #"+str(timesFailed))
         """EXPERIMENTAL PART"""
         #Will hopefully work
-        print("Writing error to GroupMe")
+        writeLog("Writing error to GroupMe")
         import http.client, json
         handle = http.client.HTTPSConnection("api.groupme.com")
         handle.request("POST","/v3/bots/post", body = json.dumps({"text":stringBuffer.read().replace("\n","\r\n"), "bot_id":"a2052a0c5f5337ee4087219100"}).encode("utf-8"))
         response = handle.getresponse()
-        print("Code:   ", response.getcode())
-        print("Body:   ", response.read().decode("utf-8"))
-        print("Headers:", response.getheaders())
+        writeLog("Code:   ", response.getcode())
+        writeLog("Body:   ", response.read().decode("utf-8"))
+        writeLog("Headers:", response.getheaders())
         handle.close()
         """END EXPERIMENTAL PART"""
       

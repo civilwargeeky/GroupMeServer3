@@ -236,8 +236,6 @@ class Command():
   def handle_help(command):
     return "Try out the website! " + Network.getIPAddress() + "\n(Password: "+command.group.getPassword()+")"
   
-  addressModifiers = ["college"]
-  
   def do_address(self):
     self.details = filterWords(stripPunctuation(self.rightString), ["in","is", "to", "and"]).strip()
     
@@ -251,7 +249,7 @@ class Command():
         remainingString = remainingString[match.end():].lstrip() #Take out the word we found
         break
     
-    for word in self.addressModifiers: #Goes through possible types of addresses, checking only at the end to get "College Address" but not "College Sophia's address"
+    for word in Events.ADDRESS_MODIFIERS: #Goes through possible types of addresses, checking only at the end to get "College Address" but not "College Sophia's address"
       match = re.search(r"\b"+word+r"\Z", self.leftString.rstrip(), re.I)
       if match:
         self.specifier = word
@@ -278,7 +276,7 @@ class Command():
       return "I know you want me to do something with addresses, but I don't know whose! (Yell at Daniel)\n"
     
   def do_addresses(self):
-    for word in self.addressModifiers:
+    for word in Events.ADDRESS_MODIFIERS:
       if findWord(self.specifier, self.leftString):
         self.specifier = word
         
@@ -289,7 +287,7 @@ class Command():
       if baseAddress:
         toRet += "Addresses for " + user.getName() + ":\n"
         toRet += "--" + baseAddress + "\n"
-        for modifier in Command.addressModifiers: #Goes through all possible address types
+        for modifier in Events.ADDRESS_MODIFIERS: #Goes through all possible address types
           subAddress = user.getAddress(modifier)
           if subAddress:
             toRet += "--" + modifier.title() + ": " + subAddress + "\n"

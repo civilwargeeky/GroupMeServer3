@@ -1,5 +1,6 @@
 #Interface for handling web requests and serving files
 import datetime
+import http.cookies
 import http.client
 import json
 import re
@@ -85,7 +86,7 @@ def securityRegister(uuid, groupNum):
 def getCookie(cookies, key):
   try:
     return cookies[key].value
-  except KeyError:
+  except (TypeError, KeyError): #TypeError if cookies is none
     return None
     
     
@@ -175,7 +176,7 @@ class Handler:
     
     return self.sendFile(group, self.fileName)
     
-  def loadFile(self, path): #Simple file loading mechanism
+  def loadFile(self, path, shouldError = True): #Simple file loading mechanism
     path = path.strip(os.sep)
     try:
       with open(path) as file:
@@ -183,6 +184,8 @@ class Handler:
     except FileNotFoundError:
       if not DEFAULT_DIR in os.path.split(path)[0]: #Also try to load from the DEFAULT_DIR, because most documents will be there
         return self.loadFile(os.path.join(DEFAULT_DIR, path))
+      if shouldError: #If we should raise the error, re-raise the error
+        raise FileNotFoundError("Could not load file: " + path)
       return False
     
   #This does the actual loading and sending of files
@@ -210,14 +213,16 @@ class Handler:
   def sendFile(self, group, path, code = http.client.OK, headers = {}):
     if not path: #If the path is blank
       return self.redirectFile(group, self.PAGE_DEFAULT, headers = headers)
+      
+    path = path.strip("/") #Because I use / for absoulte and it messes up file serving
     
     isAdmin = getCookie(self.cookies, "administrator")
-    if fileName in ["restartserver","shutdownserver"]:
+    if path in ["restartserver","shutdownserver"]:
       if isAdmin: #Here be admin access
-        if fileName == "restartserver":
+        if path == "restartserver":
           Events.NonBlockingRestartLock.acquire(blocking = False)
           log.info("Restarting Server (from web request)!")
-        if fileName == "shutdownserver":
+        if path == "shutdownserver":
           Events.NonBlockingShutdownLock.acquire(blocking = False)
           log.info("SHUTTING DOWN SERVER!!! (from web request)")
         return self.redirectPage(group, self.PAGE_INDEX)
@@ -227,7 +232,7 @@ class Handler:
     #Checking for generated files
     if path in self.genFiles:
       try:
-        method = getattr(self, "do_"+path.split(".")[0]) #Get the fileName before .html
+        method = getattr(self, "do_"+path.split(".")[0]) #Get the path before .html
       except AttributeError:
         log.web.error("No Generation Function for path",path) #Otherwise just return the basic file and log error
       else: #Don't want to catch errors from these
@@ -235,7 +240,6 @@ class Handler:
     
     #log.debug("File requested for path: '"+path+"'")
     if not self.existsFile(path):
-      
       path = os.path.join(DEFAULT_DIR, path)
       if not self.existsFile(path) and not path.endswith(self.PAGE_NO_PATH): #We will always be able to access PAGE_NO_PATH, but don't create an infinite loop
         log.net.error("Cannot find file for path '"+path+"', returning",self.PAGE_NO_PATH)
@@ -264,7 +268,7 @@ class PostHandler(Handler):
       log.website.debug("Password sent:",password)
       if password == ADMIN_PASSWORD: #Possibly set the admin password
         log.web.debug("New admin admitted")
-        self.redirectFile(groupNum, self.PAGE_INDEX, {"Set-Cookie":"administrator=true"+NEVER_EXPIRES}
+        self.redirectFile(groupNum, self.PAGE_INDEX, {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
       elif password == Groups.getGroup(groupNum).getPassword():
         log.web.debug("User entered correct password for group",groupNum)
         id = securityRegister(self.userID, groupNum)
@@ -280,20 +284,44 @@ class GetHandler(Handler):
   GEN_PATH     = Files.getFileName("GEN_GET_FILES", prefix = "")
 
   def do_addresses(self, group):
-    pass
+    log.web.debug("Sending Addresses Screen")
+    toSend = self.loadFile(self.PAGE_DEF_GEN)
+    group = Groups.getGroup(group)
+    if group:
+      toWrite = '<table border="1" width="100%">'
+      for user in group.users.getUsersSorted(lambda user: user.getName()):
+        name = user.getName()
+        #Add in their home address (or a default)
+        addressesRaw = [("Home", user.getAddress() or "No Home Address")]
+        #Add in all other addresses (if they have one. If not, getAddress returns false)
+        addressesRaw.extend([(type, user.getAddress(type)) for type in Events.ADDRESS_MODIFIERS if user.getAddress(type)])
+        maxLength = str(max(len("Home"), len(max(Events.ADDRESS_MODIFIERS, key = len)))) #Gets the length of the longest string (as a string) from address modifiers
+          #This part is just the html for where to insert the address and name
+        toWrite += '<tr><td class="AddressLeft">{}</td><td>{}</td></tr>'.format(user.getName(), \
+                   "<br>".join([("{:"+maxLength+"}: {}").format(data[0], data[1]) for data in addressesRaw])) #This goes through each address, and adds the type (justified to max length), and then the address
+      toWrite += "</table>" #End HTML tag
+    else:
+      toWrite = "No group associated??? (Yell at Daniel)"
+      
+    toSend = toSend.replace(self.STR_TITLE  , "Addresses")
+    toSend = toSend.replace(self.STR_CONTENT, toWrite)
+    
+    self.sendResponse()
+    self.writeText(toSend)
+    
   
   def do_selectionScreen(self, _): #We don't care for group
     log.web.debug("Sending Selection Screen")
     basicFile = self.loadFile(self.fileName)
-    if not basicFile: raise ValueError("Could not load selection screen!")
     
     content = ""
-    for group in Groups.getGroupList(groupType = Groups.MainGroup): #Get a list of all the main groups
-      content += \
-      """<tr onclick="document.location = '{group}/index.html'">
-        <td valign="middle" style="text-align:center"><p style="font-size:110%;margin:5pt">{groupName}</p><p style="font-size:100%;font-style:italic;color:#008800;margin:5pt">Group {group}</p></td>
-        <td width = 1pt><img src="{groupImage}" style="vertical-align:middle;width:90px"></td>
-      </tr>""".format(group = group.getID(), groupName = group.getName(), groupImage = group.image or self.PAGE_ICON)
+    for group in Groups.getSortedList(groupType = Groups.MainGroup): #Get a list of all the main groups
+      if group.getID() != 99: #If is not error group
+        content += \
+        """<tr onclick="document.location = '{group}/index.html'">
+          <td valign="middle" style="text-align:center"><p style="font-size:110%;margin:5pt">{groupName}</p><p style="font-size:100%;font-style:italic;color:#008800;margin:5pt">Group {group}</p></td>
+          <td width = 1pt><img src="{groupImage}" style="vertical-align:middle;width:90px"></td>
+        </tr>""".format(group = group.getID(), groupName = group.getName(), groupImage = group.image or self.PAGE_ICON)
       
     basicFile = basicFile.replace(self.STR_CONTENT, content)
     

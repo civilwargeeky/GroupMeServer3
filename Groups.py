@@ -127,8 +127,8 @@ def getGroupList(groupType = None):
     raise TypeError("getGroupList expected a groupType inherited from Group, got " + str(groupType))
   
           
-def getSortedList(key = None):
-  return sorted(getGroupList(), key = key or Group.getID) #key or ... because cannot put Group. in argument list as group does not exist yet
+def getSortedList(groupType = None, key = None):
+  return sorted(getGroupList(groupType), key = key or Group.getID) #key or ... because cannot put Group. in argument list as group does not exist yet
 
 #A "Group" represents an interface for a "base" group. So a "Group" object will keep track of all the data and users and references and subgroups that a group has.
 #Group is also the network interface for all tasks that a group could do
@@ -211,10 +211,7 @@ class Group():
             else: #If the bot we found doesn't have the proper ip address, update it's ip address
               if ownBot['callback_url'] != Network.getIPAddress():
                 log.group("IP has changed! Updating bot id")
-                if not Events.IS_TESTING:
-                  self.handler.updateBots(self.getBot())
-                else:
-                  log.group("JK WE'RE NOT UPDATING THE BOT BECAUSE THIS BREAKS THE MAIN SERVER")
+                self.handler.updateBots(self.getBot())
           
         #After all that is done, update the message list
         MsgSearch.getSearcher(self).GenerateCache()

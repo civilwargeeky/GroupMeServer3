@@ -10,6 +10,7 @@ import time
 import uuid #For poster message sending
 from urllib.parse import urlencode
 
+import Events
 import Files
 import Groups
 import Logging as log
@@ -292,6 +293,9 @@ class GroupMeHandler():
   
   def createBot(self, name, avatar = None, mainBot = True):
     log.net("Making a new bot for Group",self.group.ID)
+    if Events.IS_TESTING:
+      log.net("JK NOT MAKING A BOT BECAUSE TESTING SORRY")
+      return False
     postBody = {"bot":{"name":name, "group_id":self.group.groupID}}
     if avatar:
       #Check if the picture is properly uploaded
@@ -315,6 +319,9 @@ class GroupMeHandler():
     
   def deleteBot(self, botID): #Note: Bots are deleted when their group is deleted. No need to delete them manually
     log.net("Destroying bot for Group",self.group.ID)
+    if Events.IS_TESTING:
+      log.net("JK ALSO NOT DELETING BOTS BECAUSE TESTING SORRY")
+      return False
     response = self.post("bots/destroy", query = {"bot_id": botID})
     return response.code == 200
     
@@ -332,7 +339,7 @@ class GroupMeHandler():
     if botInfo:
       for bot in botInfo:
         #If the bot is the proper full bot for our group
-        if bot['group_id'] == self.group.groupID and bot['callback_url'] == getIPAddress():
+        if bot['group_id'] == self.group.groupID and (Events.IS_TESTING or bot['callback_url'] == getIPAddress()): #Only check address if not testing.
           log.net("Rectify success")
           if saveData:
             self.bot = bot['bot_id']
@@ -364,6 +371,9 @@ class GroupMeHandler():
           log.net.error("COULD NOT UPDATE BOT ON CREATE, ERRORING")
           raise RuntimeError("COULD NOT CREATE BOT FOR UPDATE")
       else:
+        if Events.IS_TESTING:
+          log.net("JK NOT UPDATING BOTS BECAUSE TESTING SORRY")
+          return False
         log.net.error("COULD NOT UPDATE BOT, ERRORING")
         raise RuntimeError("COULD NOT DELETE BOT FOR UPDATE")
         

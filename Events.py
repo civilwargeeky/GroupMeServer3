@@ -6,8 +6,11 @@ import threading
 
 import Logging as log
 
+### CROSS-MODULE CONSTANTS ###
 IS_TESTING = os.path.basename(os.getcwd()) in ["test","dev"]
+ADDRESS_MODIFIERS = ["college"]
 
+### EVENTS AND UPDATING ###
 class Holder:
   pass
   

@@ -76,6 +76,9 @@ class Searcher():
           self._messageList = json.load(file)
       except FileNotFoundError:
         log.save.debug("No file found for",self,", not loading")
+      except ValueError:
+        log.save.error("Invalid JSON Saving on server stop")
+        
   
   ### Interface Functions ###
 
