@@ -159,7 +159,7 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "shutdown", "restart" \
+                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart" \
                      ]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
@@ -495,13 +495,29 @@ class Command():
     else:
       return u"Love you \u2764"
       
+  def do_group_password(self): 
+    if findWord(["whats?","get"], self.leftString + " " + self.rightString):
+      self.verb = "get"
+    else:
+      self.verb = "set"
+      self.details = filterWords(self.rightString, ["to","as"]).strip()
+      
+  def handle_group_password(self):
+    if self.verb == "get":
+      return "The website password is: " + self.group.getPassword()
+    else:
+      success = self.group.setPassword(self.details)
+      return ("Successfully set website password to: " + self.group.getPassword()) if success else ("Could not set website password to '"+self.details+"'")
+      
   def do_restart(self): pass
   def do_shutdown(self): pass
   
   def handle_restart(command):
     Events.NonBlockingRestartLock.acquire(blocking = False)
     log.command("SIGNALLING SERVER RESTART")
+    return "Restarting Server!"
     
   def handle_shutdown(command):
     Events.NonBlockingShutdownLock.acquire(blocking = False)
     log.command("SIGNALLING SERVER SHUTDOWN")
+    return "Shutting Down Server!"

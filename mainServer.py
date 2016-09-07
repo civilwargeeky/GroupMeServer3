@@ -165,9 +165,11 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
     pass
     
 #Expects a tuple of (userID, token)
-def makeNamedGroup(id, groupID, idTuple):
+def makeNamedGroup(id, groupID, idTuple, initialPassword = None):
   if not Groups.getGroup(id):
     toRet = Groups.MainGroup(id, groupID)
+    if initialPassword:
+      toRet.setPassword(initialPassword)
     user = toRet.users.addUser(Users.User(toRet, idTuple[0])).setToken(idTuple[1])
     user.save()
   else:
@@ -223,9 +225,9 @@ def main():
   ### Named groups should be made after INIT to avoid duplicated initial users
   testGroup = makeNamedGroup(1, "23199161", put)
   
-  toriGroup = makeNamedGroup(15, "23317842", put)
+  toriGroup = makeNamedGroup(15, "23317842", put, "DLARulez")
   
-  groupFam  = makeNamedGroup(2, "13972393", put)
+  groupFam  = makeNamedGroup(2, "13972393", put, "CieloIsPrettyHip")
   groupFam.setBot("cfe41d49a83d73874f4aa547b9")
 
   try: #This is so we can have our finally block remove any extra threads in case of error

@@ -162,6 +162,7 @@ class Group():
     self.groupID = groupID
     self.name = None
     self.image = None
+    self.password = None #This should be in MainGroup, but it doesn't save an attrTable and I have no way of changing it without breaking existing server
     #The owner is not necessary, but if there are multiple users with tokens, this will resolve issues
     self.owner = None #The owner is a token of the owner user
     self.bot   = None #This is the group's bot id that it uses to post messages
@@ -239,9 +240,6 @@ class Group():
     
   def getID(self):
     return self.ID
-    
-  def getPassword(self):
-    return "testPassword"
     
   ### Group Functions ###
     
@@ -407,7 +405,7 @@ class Group():
     return self
 
   def _save(self, writeHandle): #This is where you have class specific saving things.
-    Files.saveAttrTable(self, writeHandle, ["groupID", "name","image", "owner", "bot", "analytics", "commands"])
+    Files.saveAttrTable(self, writeHandle, ["groupID", "name", "image", "password", "owner", "bot", "analytics", "commands"])
       
   def load(self, fileHandle): #Can load necessary data from file here
     Files.loadAttrTable(self, fileHandle)
@@ -417,6 +415,8 @@ class Group():
 class MainGroup(Group):
   def __init__(self, ID = None, groupMeID = None):
     super().__init__(ID, groupMeID)
+    
+    self.password = None
     
     #A dict of eventGroups of the form groupID : groupReference
     self.eventGroups = {}
@@ -455,6 +455,16 @@ class MainGroup(Group):
             
       #Check if we need to delete groups for events that are over
       self.checkForEndedEvents()
+    
+  def getPassword(self):
+    return self.password or "testPassword"
+    
+  def setPassword(self, password):
+    if type(password) == str and len(password) > 0:
+      self.password = password
+      self.save()
+      return True
+    return False
     
   #Note: If a user leaves the mainGroup, the user's eventGroup counterparts will have no knowledge of the user's address, token, or other data
   def removeUser(self, userObj):
