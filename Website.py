@@ -13,6 +13,7 @@ import Events
 import Files
 import Groups
 import Logging as log
+import MsgSearch
 ### CONFIG AREA ###
 ID_LIFETIME = datetime.timedelta(days = 3).total_seconds() #We will tell to store cookie forever, but if its older than this we require a new sign-in
 ID_FILE     = Files.getFileName("Server_UUIDs")
@@ -122,6 +123,10 @@ class Handler:
   def __init__(self, handler):
     self.handler = handler
     self.url     = urlparse(handler.path)
+    self.params  = parse_qs(self.url.query) or {}
+    #log.debug("Path:  ", handler.path)
+    #log.debug("URL:   ", self.url)
+    #log.debug("Params:",self.params)
     #List of request headers
     self.headers = handler.headers
     #The local file path to get files from
@@ -298,7 +303,7 @@ class GetHandler(Handler):
         maxLength = str(max(len("Home"), len(max(Events.ADDRESS_MODIFIERS, key = len)))) #Gets the length of the longest string (as a string) from address modifiers
           #This part is just the html for where to insert the address and name
         toWrite += '<tr><td class="AddressLeft">{}</td><td>{}</td></tr>'.format(user.getName(), \
-                   "<br>".join([("{:"+maxLength+"}: {}").format(data[0], data[1]) for data in addressesRaw])) #This goes through each address, and adds the type (justified to max length), and then the address
+                   "<br>".join([("{:"+maxLength+"}: {}").format(data[0].title(), data[1]) for data in addressesRaw])) #This goes through each address, and adds the type (justified to max length), and then the address
       toWrite += "</table>" #End HTML tag
     else:
       toWrite = "No group associated??? (Yell at Daniel)"
@@ -308,7 +313,103 @@ class GetHandler(Handler):
     
     self.sendResponse()
     self.writeText(toSend)
-    
+  
+  def do_searchResults(self, group):
+    log.web.debug("Starting search results")
+    toSend = self.loadFile(self.PAGE_DEF_GEN)
+    group = Groups.getGroup(group)
+    if group:
+      numFound = 0
+      maxResults = 250
+      numAround  = 2 #Number on either side of found
+      nameLimit = 20 #Characters for a group name
+      #We are going to be yielding data so we do not need to buffer
+      
+      if 'query' in self.params:
+      
+        query = self.params["query"][0]
+        permissiveSearch = "strict" in self.params and (self.params["strict"][0] == "false")
+        log.web("Starting search results for query: ",query)
+        
+        #This will be copied and modified by every search result
+        mainMessage = """<tr class="SearchContainer {subclass}" id="{resultNum}{position}">
+          <td class="SearchLeft"><div style="text-align:center;padding=0px;margin=px">{userName}</div>{groupName}<br>{date}</td>
+          <td class="SearchPicture"><img class = "SearchPicture" src="{avatar}"></td>
+          <td class="SearchRight"><div class="SearchResults">
+            {text}
+            </div></td>
+        </tr>\n"""
+        
+        self.sendResponse() #We do this up here so we can start sending the rest
+        
+        #Send top part of html
+        self.writeText(toSend.split(self.STR_CONTENT)[0].replace(self.STR_TITLE, "Search Results"))
+        
+        #Write initial scripts
+        self.writeText('''<script src="util.js"></script>
+                          <script src="searchClickScript.js"></script>
+                          <form action="search.html"><button style="display:inline-block;width:100%;">Do another search!</button></form>
+                          <p>Your Search: {query}</p><br>
+                          <table border="5" width="100%" sytle="table-layout:fixed">'''.format(query = query))
+        i=-1
+        searcher = MsgSearch.getSearcher(group)
+        for message in searcher:
+          i += 1
+          #Iterates through all words of prompt if permissive, otherwise through a tuple containing only the query
+          for word in (re.split("\W+", query) if permissiveSearch else (query,)):
+            #Searches for the word(s) in each message (text can be None)
+            if message.text and re.search(word, message.text, re.IGNORECASE):
+              #And the message and surrounding ones
+              #This directly sends each search result as its generated
+              lowerBound = max(i-numAround, 0)
+              upperBound = min(i+numAround+1, len(searcher)-1)
+              index = lowerBound #Index starts at this bound, and increases to upperBound-1
+              for message in searcher[lowerBound : upperBound]:
+              
+                #Get user's name (or system) for display
+                userName = message.getUserString()
+                if message.isUser():
+                  user = group.users.getUserFromID(message.user_id)
+                  if user:
+                    userName = user.getName()
+                    
+                #Just directly writes this part as soon as its done
+                self.writeText(mainMessage.format(\
+                  #Only the main result should be visible
+                  subclass = ("" if index == i else "Hidden"), \
+                  #The result number on the page
+                  resultNum = str(numFound), \
+                  #If not the initial value, sets the index to the difference in index and lower bound, then subtracts another if it is after the intitial value
+                  position = ("" if index == i else (" "+str(index-lowerBound-int(index >= i)))), \
+                  #User's name or "calendar" or "system" or whatever
+                  userName  = userName, 
+                  #The group's name (shortened)
+                  groupName = (group.getName()[:nameLimit] + ("..." if len(group.getName()) >= nameLimit else "")), 
+                  #Add date message was sent
+                  date = datetime.date.fromtimestamp(int(message["created_at"])).strftime("%m/%d/%y"), \
+                  #The user's avatar url (if none it will put the icon of it)
+                  avatar = (message["avatar_url"] or self.PAGE_ICON), \
+                  #The actual message text
+                  text = (message["text"] or "").replace("\n","<br>"))\
+                  )
+                index += 1 #Increment index
+              
+              numFound += 1 #Add that we have found another matched
+              break #Don't want to generate multiple results from the same message
+          if numFound > maxResults: #So people don't break the server
+            break
+        
+        self.writeText("</table>")
+        if numFound == 0:
+          self.writeText("No messages matched your search")
+        if numFound > maxResults:
+          self.writeText("Too Many Results...")
+          
+        #Send bottom part of html
+        self.writeText(toSend.split(self.STR_CONTENT, 1)[1]) #Split with max split size of 1
+        
+      else:
+        self.sendResponse(http.client.INTERNAL_SERVER_ERROR)
   
   def do_selectionScreen(self, _): #We don't care for group
     log.web.debug("Sending Selection Screen")
@@ -327,3 +428,4 @@ class GetHandler(Handler):
     
     self.sendResponse() #Send good response
     self.writeText(basicFile)
+    

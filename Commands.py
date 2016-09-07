@@ -25,6 +25,15 @@ class Message(dict):
   def isCalendar(self):
     return self.sender_type == "service" and self.sender_id == "calendar"
     
+  def getUserString(self):
+    if self.isUser():
+      return self.name
+    if self.isSystem():
+      return "System"
+    if self.isCalendar():
+      return "Calendar"
+    return "Unknown"
+    
   #Returns the attachments list. If type_ is specified, will return only attachments matching that type in the list
   #  if there are no attachments matching type_, will return False
   def getAttachments(self, type_ = None):

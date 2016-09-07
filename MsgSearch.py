@@ -35,7 +35,11 @@ class Searcher():
       yield Commands.Message(message)
       
   def __getitem__(self, key):
-    return self._messageList[key]
+    if type(key) == slice:
+      for i in range(key.start, key.stop, key.step or 1):
+        yield Commands.Message(self._messageList[i])
+    else:
+      return Commands.Message(self._messageList[key])
     
   def __len__(self):
     return len(self._messageList)

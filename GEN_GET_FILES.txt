@@ -1,1 +1,1 @@
-["selectionScreen.html", "addresses.html"]
+["selectionScreen.html", "addresses.html", "searchResults.html"]
