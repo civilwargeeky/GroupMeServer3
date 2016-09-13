@@ -54,7 +54,7 @@ class Message(dict):
   #Simple alias
   def hasAttachments(self, type_ = None):
     return self.getAttachments(type_) != False
-    
+
 class CommandBuilder():
   def __init__(self, group):
     if not isinstance(group, Groups.Group):
@@ -243,7 +243,14 @@ class Command():
     return
     
   def handle_help(command):
-    return "Try out the website! " + Network.getIPAddress() + "\n(Password: "+command.group.getPassword()+")"
+    mainString = "Try out the website! {}\n(Password: "+command.group.getPassword()+")"
+    try:
+      return mainString.format(Network.getIPAddress())
+    except RuntimeError:
+      IP = Network.readIPFile()
+      if IP:
+        return mainString.format(Network.readIPFile() + " (hopefully...)")
+      return mainString.format("I have no idea what it is, but it probably exists! (Go yell at Daniel)")
   
   def do_address(self):
     self.details = filterWords(stripPunctuation(self.rightString), ["in","is", "to", "and"]).strip()

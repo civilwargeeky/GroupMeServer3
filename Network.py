@@ -77,6 +77,15 @@ class Connection():
   def get(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("GET", url, query, headers, body, forceLog)
   def post(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("POST", url, query, headers, body, forceLog)
   
+def readIPFile():
+  _ipFile = Files.getFileName("ip_address")
+  try:
+    with open(_ipFile) as file:
+      return file.read().rstrip()
+  except FileNotFoundError:
+    log.info.debug("No ip file")
+    #return None
+  
 IP_HANDLER_1 = Connection("wtfismyip.com") #Object to get the current IP address
 IP_HANDLER_2 = Connection("icanhazip.com") #For later, mess with timeouts and things so that we can try from different places
 def getIPAddress():
@@ -85,10 +94,10 @@ def getIPAddress():
     ip, code = None, None
     try:
       ip, code = IP_HANDLER_1.get("text", timeout = 5)
-    except socket.timeout:
+    except (socket.timeout, OSError): #OSError for "Network is Unreachable"
       try:
         ip, code = IP_HANDLER_2.get("", timeout = 5)
-      except socket.timeout:
+      except (socket.timeout, OSError):
         log.net.error("FAILED TO ACQUIRE IP ADDRESS FROM WEB!")
     if code == 200:
       IP_ADDRESS = "http://"+ip.rstrip()+":"+str(SERVER_CONNECTION_PORT)
@@ -109,11 +118,7 @@ def hasIPChanged():
   #Get the last ip we had
   oldIP = IP_ADDRESS
   if not oldIP:
-    try:
-      with open(_ipFile) as file:
-        oldIP = file.read().rstrip()
-    except FileNotFoundError:
-      log.info.debug("No ip file")
+    oldIP = readIPFile() or IP_ADDRESS #(IP_ADDRESS if we cannot read)
   
   #Get our new ip, then save it
   newIP = getIPAddress()
