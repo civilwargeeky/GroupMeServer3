@@ -3,6 +3,7 @@
 import xml.etree.ElementTree as xml
 import copy, json, random, html.parser, re
 
+import Events
 import Files
 import Logging as log
 import Network
@@ -417,11 +418,12 @@ squirrelFacts.setJokes([
   
 ### Utility Functions ###
 #The only way this could have a problem is if we had "pokemon facts" and "pokemon jokes" or something like that
-def getJokeType(title):
-  title = title.split(" ", 1)[0].title()
-  for word in ["Joke", "Fact", "Pic"]:
-    try:
-      return BaseJoke._jokeObjects[title+" "+word]
-    except KeyError:
-      pass
+def getJokeType(string):
+  for type in string.split():
+    type = type.split(" ", 1)[0].title().strip(Events.PUNCTUATION_FILTER + " ")
+    for word in ["Joke", "Fact", "Pic"]:
+      try:
+        return BaseJoke._jokeObjects[type+" "+word]
+      except KeyError:
+        pass
   return None

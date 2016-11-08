@@ -9,6 +9,7 @@ import Logging as log
 ### CROSS-MODULE CONSTANTS ###
 IS_TESTING = os.path.basename(os.getcwd()) in ["test","dev"]
 ADDRESS_MODIFIERS = ["college"]
+PUNCTUATION_FILTER = ".,/?!'\";:@#$%^&*()[]{}<>*-+="
 
 ### EVENTS AND UPDATING ###
 class Holder:

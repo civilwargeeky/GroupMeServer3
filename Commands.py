@@ -189,6 +189,7 @@ class Command():
         methodName = "do_"+methodize(self.commands[command] or command)
         self.leftString  = self.message[:match.start()].rstrip()
         self.rightString = self.message[match.end():].lstrip()
+        self.bothString  = self.leftString + self.rightString
         log.command.low("Left:",self.leftString)
         log.command.low("Right:",self.rightString)
         try:
@@ -314,7 +315,7 @@ class Command():
   #Uses verbs: get, subscribe, unsubscribe
   def do_joke(self):
     self.verb = "get"
-    if findWord(["types","kinds","categories"], self.leftString + " " + self.rightString): #If these are in either
+    if findWord(["types","kinds","categories"], self.bothString): #If these are in either
       self.specifier = "type"
       return #Don't do anything else
     
@@ -327,7 +328,7 @@ class Command():
       
     #Tries to get another type of joke, otherwise returns default
     jokeIdentifier = self.leftString.split(" ")[-1]
-    self.jokeHandler = Jokes.getJokeType(jokeIdentifier) or Jokes.joke
+    self.jokeHandler = Jokes.getJokeType(self.bothString) or Jokes.joke
     
     if self.jokeHandler == Jokes.joke:
       self.details = jokeIdentifier
@@ -491,7 +492,7 @@ class Command():
     
   def do_human_affection(self):
     log.command("Searching for human affection")
-    self.recipientObj = self.group.users.getUser(self.leftString + " " + self.rightString)
+    self.recipientObj = self.group.users.getUser(self.bothString)
     
   def handle_human_affection(command):
     toSend = command.sender
@@ -503,7 +504,7 @@ class Command():
       return u"Love you \u2764"
       
   def do_group_password(self): 
-    if findWord(["whats?","get"], self.leftString + " " + self.rightString):
+    if findWord(["whats?","get"], self.bothString):
       self.verb = "get"
     else:
       self.verb = "set"
