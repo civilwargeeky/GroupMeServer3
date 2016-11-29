@@ -230,7 +230,7 @@ class Handler:
         if path == "shutdownserver":
           Events.NonBlockingShutdownLock.acquire(blocking = False)
           log.info("SHUTTING DOWN SERVER!!! (from web request)")
-        return self.redirectPage(group, self.PAGE_INDEX)
+        return self.redirectFile(group, self.PAGE_INDEX)
       else:
         return self.sendFile(group, "noAuth.html", http.client.FORBIDDEN)
     

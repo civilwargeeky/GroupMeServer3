@@ -70,7 +70,8 @@ class Connection():
     response = handle.getresponse()
     data, code = response.read().decode("utf-8"), response.getcode()
     log.network("Response Code:", code)
-    log.network.debug("Message:", data if len(data) < self.debugCutoffLength or forceLog else (data[:1000] + "..."))
+    log.network.debug("Response Headers:", response.getheaders())
+    log.network.debug("Response Message:", data if len(data) < self.debugCutoffLength or forceLog else (data[:1000] + "..."))
     handle.close()
     return data, code
   

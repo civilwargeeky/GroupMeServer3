@@ -286,7 +286,7 @@ class RedditFact(SimpleFileJoke, SimpleFact):
     self.subreddit       = subreddit
     self.requirePictures = requirePictures
     
-    self.connection = Network.Connection("www.reddit.com")
+    self.connection = Network.Connection("www.reddit.com", https = True)
     self.factFilters = [] #This is a list of lambda functions that take in a string and return a modified string. Individual subreddits can filter the titles of their facts
     #The fact filter is used on message acquisition
     
