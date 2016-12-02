@@ -23,7 +23,11 @@ class Message(dict):
     return self.sender_type == "system"
     
   def isCalendar(self):
-    return self.sender_type == "service" and self.sender_id == "calendar"
+    try:
+      return self.sender_type == "system" and "calendar" in self.event['type']
+    except (AttributeError, KeyError):
+      pass
+    return False
     
   def getUserString(self):
     if self.isUser():
