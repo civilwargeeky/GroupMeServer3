@@ -395,10 +395,10 @@ class Group():
     
   ### Saving and Loading ###
   
+  #This is the save that should be used normally
   #"basic" save should be used only during __init__, to make sure that the group exists so it's type can be read
   def save(self): #Method for saving a group and its data
     log.save("Saving:", self)
-    log.debug("BOT HERE:", self.bot)
     with Files.SafeOpen(self.filePath, "w") as file:
       file.write(type(self).__name__+"\n")
       self._save(file)
@@ -538,7 +538,7 @@ class MainGroup(Group):
               except KeyError:
                 log.group.error("ERROR: No event group for event " + originalEvent + " not adding/removing users")
                 return
-              log.group("Adding" if "not" not in string else "Removing","user '"+userString+"' for event",group)
+              log.group("Removing" if "not" in string else "Adding","user '"+userString+"' for event",group)
               if "not" in string:
                 #User may not exist in other group due to timing delays or what not, but should definitely exist in this group
                 user = group.users.getUserFromID(self.users.getUser(userString).ID)
@@ -678,13 +678,7 @@ class SubGroup(Group):
       raise TypeError("Error when setting parent. Parent cannot be of type " + str(type(parentGroup)) + " derived from 'SubClass'")
     self.parent = parentGroup
     
-  def deleteSelf(self):
-    super().deleteSelf()
-    if self.groupID:
-      #Note: This also deletes any bots associated with the group
-      log.group("Removing GroupMe Group")
-      if self.handler.deleteGroup(self.groupID).code == 200:
-        log.group("GroupMe group successfully deleted")
+  
     
   def _save(self, handle):
     super()._save(handle)
@@ -696,6 +690,17 @@ class SubGroup(Group):
     del self.commands  # ^^
     self.parent = int(Files.read(fileHandle))
     log.save("Group ID set on subgroup load:", self.parent)
+    
+  def deleteSelf(self):
+    super().deleteSelf()
+    if self.groupID:
+      #Note: This also deletes any bots associated with the group
+      log.group("Removing GroupMe Group")
+      if self.handler.deleteGroup(self.groupID).code == 200:
+        log.group("GroupMe group successfully deleted")
+      else:
+        log.group("GroupMe group deletion failed")
+    
     
   
 #An "EventGroup" is a specific type of "Subgroup" that is created specially for events, and has helper methods for that

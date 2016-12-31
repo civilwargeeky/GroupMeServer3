@@ -24,6 +24,7 @@ class User():
       log.save.low("Loading ",userType,"from",fileName)
       return globals()[userType](groupReference).load(file) #Load arbitrary class
 
+  _keyAddrDefault = "_main"
 
   def __repr__(self):
     return "<Users."+type(self).__name__+" object. Name: " + self.getName() + ">"
@@ -49,9 +50,12 @@ class User():
     return Files.getFileName(Files.join(Files.getGroupFolder(self.group), "Users", self.ID or "DEFAULT_USER"))
     
   #Just adds an alias. No name update required
+  #POST: Returns True if the name did not exist, False otherwise
   def addAlias(self, name):
     if name not in self.alias:
       self.alias.append(name)
+      return True
+    return False
       
   def removeAlias(self, name):
     try:
@@ -68,6 +72,11 @@ class User():
       self.realName = name
     else:
       self.GMName = name
+    return True #Because this is used other places
+     
+  #Just checking for having this name
+  def hasName(self, name):
+    return name in self.alias
     
   #Returns a display name for a user. If preferGroupMe is true, will attempt to return the "GroupMe Name" before "Real Name"
   def getName(self, preferGroupMe = False):
@@ -79,9 +88,23 @@ class User():
         return value
     return "User " + (self.ID or "Undefined")
     
+  #Removes the given name, resetting realName if necessary
+  #PRE: name is a string
+  #POST: if name does not exist, IndexError. otherwise returns True if name removed, False if
+  #        name was GMName and couldn't be removed.
+  def removeName(self, name):
+    if name == self.GMName:
+      return False #Cannot remove groupMeName
+    if name == self.realName:
+      self.realName = None
+    self.removeAlias(name)
+    return True
+    
+    
   #Just returns the string of the name along with "real name" if its the real name and "GM Name" if its the groupMe name
+  #E.G. If someone's real name is Jorge, and we request Jorge, will return "Jorge ('Real Name')"
   def specifyName(self, name):
-    return name+(" ('Real Name')" if name == self.realName else "") + (" (GM Name)" if name == self.GMName else "")
+    return name+(" (Real Name)" if name == self.realName else "") + (" (GM Name)" if name == self.GMName else "")
     
   def setToken(self, token):
     if type(token) != str: raise TypeError("token must be of type str, not "+str(type(token)))
@@ -100,7 +123,7 @@ class User():
     if type(addressType) == str:
       self.data[key][addressType] = address
     else: 
-      self.data[key]['_main'] = address
+      self.data[key][self._keyAddrDefault] = address
     self.save()
       
   def getAddress(self, addressType = None):
@@ -109,7 +132,7 @@ class User():
       if type(addressType) == str and addressType:
         return self.data[key][addressType]
       else:
-        return self.data[key]['_main']
+        return self.data[key][self._keyAddrDefault]
     except KeyError:
       return False #If key error, we don't have the address requested
   
@@ -336,7 +359,7 @@ class UserList():
         toRet = searchNames(alii)
         if toRet: return toRet
           
-      log.user("Could not find user from identification", userIdent, "in Group", self.group.ID)
+      log.user.low("Could not find user from identification", userIdent, "in Group", self.group.ID)
       return None
       
   def getUserFromID(self, userIdent):

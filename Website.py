@@ -5,6 +5,7 @@ import http.client
 import json
 import re
 import os
+from textwrap import dedent
 from time import time
 from urllib.parse import urlparse, parse_qs
 from uuid import uuid4
@@ -90,8 +91,48 @@ def getCookie(cookies, key):
   except (TypeError, KeyError): #TypeError if cookies is none
     return None
     
+class Headers():
+  def __init__(self):
+    self._data = {}
+    
+  def addHeader(self, header, value):
+    if not header in self._data:
+      self._data[header] = [value,]
+    else:
+      self._data[header].append(value)
+    
+  #POST: If the key does not exist, raises KeyError. If the key has 1 value, returns the value. If more than 1, returns a list
+  def __getitem__(self, key):
+    if len(self._data[key]) > 1:
+      return self._data[key][:] #Return a copy, no data editing
+    return self._data[key][0] #If only one value, return the value
+    
+  #Modifies the first value with the given key. I.E. if there are two "Set-Header"s, it will only modify the first one
+  def __setitem__(self, key, value):
+    if key in self._data:
+      self._data[key][0] = value
+    else:
+      self.addHeader(key, value)
+      
+  def __iter__(self): return self._data.__iter__()
+  def __delitem__(self, key): del self._data[key]
+  def __contains__(self, key): return key in self._data
+    
     
 ### REQUEST HANDLING ###
+
+#Intended to be used as a decorator for do_... functions. Describes the extensions this method is valid for
+#NOTE: By default, "html" will be used for a function
+#Example:
+#  @extSupport("html","css","js")
+#  def do_dataPage(self, num): ...
+#
+#  would register that this function should receive messages for "dataPage.html" as well as "dataPage.js"
+def extSupport(*arg):
+  def addExt(function): 
+    function._supportedExtensions = list(arg)
+    return function
+  return addExt
 
 def handleRequest(method, handler):
   if method == "POST":
@@ -104,7 +145,9 @@ def handleRequest(method, handler):
     log.net.error("Cannot handle request of type", method)
     
 #This is just the generic handler. Should use POST or GET handler for specific requests
+#A handler is instantiated for a single request
 class Handler:
+  CHUNK_SIZE   = 1024 * 256 #The size of a buffer chunk to download/upload at once. 1/4 MB
   PAGE_NO_PATH = "/noFile.html"
   PAGE_DEFAULT = "/selectionScreen.html" #Default webpage to send to
   PAGE_ICON    = "/favicon.ico"
@@ -114,6 +157,7 @@ class Handler:
   STR_CONTENT  = "%content%" #String to replace for content
   STR_TITLE    = "%title%"   #String to replace for page title
   COOKIE_ID    = "user_id" #The cookie key for user id
+  ERR_NO_GRP   = "No group associated with web request"
   requestsProcessed = 0 #Reset every time server starts
   
   #A generated file will have two strings in it, a "%title%" and a "%content%" so that the page can be properly generated
@@ -133,8 +177,23 @@ class Handler:
     self.fileName = os.path.normpath(self.url.path).strip(os.sep) #Strip these slashes from both sides or else things mess up when loading files
     #Organize the cookies (if we have any)
     self.cookies = http.cookies.BaseCookie(self.handler.headers['cookie']) if ('cookie' in self.handler.headers) else None
-    groupNum = re.search("\AGroup (\d+)", self.url.path.lstrip("/"))
-    self.group = Groups.getGroup(int(groupNum.group(1))) if groupNum else None
+    self.group = None #The group number
+    self.groupObj = None #The group object
+    self.responseSent = False #After we call "sendResponse" then we can't send headers again
+    
+    #We won't actually send data until we are sure that we have it all
+    self.buffer = "".encode(self.ENCODING)
+    
+    #Checking for a group folder
+    try:
+      splitPath = os.path.split(self.fileName) #splits into (everything besides tail, tail)
+      #NOTE: A really nice thing about this is that all hyperlinks are paths relative to a folder unless otherwise specified :D
+      #NOTE ON IMPLEMENTATION: this naiive assumption is that we will never be in a folder besides base or a group number
+      self.group = int(splitPath[0]) #I expect the most folder complexity to be "group/file"
+      self.groupObj = Groups.getGroup(self.group)
+      self.fileName = splitPath[1] #If we have a group, modify the fileName to not contain the group
+    except ValueError: #Not part of a group
+      pass
     
     if self.genFiles == None: #If the list of files isn't loaded
       self.loadGenFiles()
@@ -142,19 +201,24 @@ class Handler:
     #log.debug("Group: ", self.group)
     log.web.low("New Handler for Url: ", self.url)
   
+  #This will actually get the list of file we can process from the methods that exist
+  #Note: This will be used by subclasses. So a GET handler will register all the GET pages we can use
   @classmethod
   def loadGenFiles(cls):
-    try:
-      with open(cls.GEN_PATH) as file:
-        cls.genFiles = json.load(file)
-        log.web("Successfully loaded GEN_PATH files!")
-        log.debug(cls.genFiles)
-    except FileNotFoundError:
-      log.web.error("Could not find GEN_PATH file!")
-      raise FileNotFoundError("Could not find {} file!".format(cls.GEN_PATH)) from None #Also should be breaking
-    except ValueError:
-      log.web.error("JSON could not parse GEN_PATH file! (file empty?)")
-      raise ValueError("JSON parse fail for loading GEN_PATH") from None #This should be breaking
+    log.web("Loading generated files for",cls.__name__)
+    cls.genFiles = []
+    for method in dir(cls): #We just go through all the methods available in the class
+      if method.startswith("do_"):
+        function = getattr(cls, method)
+        if hasattr(function, "_supportedExtensions"):
+          extList = function._supportedExtensions
+        else:
+          extList = ["html",]
+        for ext in extList: #Adds all the pages to look out for
+          #These should look like "do_page" --> "page.html"
+          #The "if ext else"... because we can have no extension as well
+          cls.genFiles.append(method.replace("do_","",1)+("." if ext else "")+ext)
+    log.web("Files available:", cls.genFiles)
   
   def existsFile(self, path):
     return os.path.exists(path) and os.path.isfile(path)
@@ -162,24 +226,22 @@ class Handler:
   #Handle takes an arbitrary request (GET or POST) and processes it, sending back data if necessary
   def handle(self):
     Handler.requestsProcessed += 1
-    log.net("File Requested: '{}' (#{})".format(self.fileName, Handler.requestsProcessed))
-    
-    #Checking for a group folder
-    try:
-      splitPath = os.path.split(self.fileName)
-      #NOTE: A really nice thing about this is that all hyperlinks are paths relative to a folder unless otherwise specified :D
-      group = int(splitPath[0]) #I expect the most folder complexity to be "group/file"
-      self.fileName = splitPath[1] #If we have a group, modify the fileName to not contain the group
-    except ValueError: #Not part of a group
-      group = None
+    log.net("(#{}) File Requested: '{}'".format(Handler.requestsProcessed, self.fileName) + \
+      (" for group {}".format(self.group) if self.group else ""))
       
     #Checking for user authorization
     self.userID = getCookie(self.cookies, self.COOKIE_ID)
-    if not securityCanAccess(self.userID, group) and not self.fileName.endswith("password.html"):
+    if not securityCanAccess(self.userID, self.group) and not self.fileName.endswith("password.html"):
       log.security("User not allowed to access", self.fileName+", returning password page")
-      return self.redirectFile(group, "password.html")
+      return self.redirectFile("password.html")
     
-    return self.sendFile(group, self.fileName)
+    try:
+      return self.sendFile(self.fileName)
+    except Exception as e: #Not BaseException though
+      #In the event of any error, set this
+      self.sendError(str(e))
+      raise e #Raise it again so I can see what's going on
+      
     
   def loadFile(self, path, shouldError = True): #Simple file loading mechanism
     path = path.strip(os.sep)
@@ -199,25 +261,53 @@ class Handler:
     with open(path, "rb") as handle:
       #yield handle.read() #Super simple way
       while True:
-        data = handle.read(1024 * 256) #Don't load too much data at once.
+        data = handle.read(self.CHUNK_SIZE) #Don't load too much data at once.
         if not data: break #Check if any more data to read
         yield data #Return this bit of data
         
   def writeText(self, text):
-    return self.handler.wfile.write(text.encode(self.ENCODING))
+    self.buffer += text.encode(self.ENCODING)
     
   #Just sends headers and code
-  def sendResponse(self, code = http.client.OK, headers = {}):
+  #PRE: Use sendData = False if some other part of the method can add to the buffer, 
+  #       and the buffer should not be sent (like for errors and such)
+  #POST: Returns true if new response is sent. False if response has already been sent
+  def sendResponse(self, code = http.client.OK, headers = None, sendData = True):
+    if self.responseSent:
+      return False
     self.handler.send_response(code)
-    for key in headers:
-      self.handler.send_header(key, headers[key])
+    if headers != None:
+      for key in headers:
+        toSend = headers[key] #Get values
+        if type(toSend) != list: #If there was only 1
+          toSend = [headers[key],]
+          
+        for val in toSend: #Then send all repetitions for this value
+          self.handler.send_header(key, val)
     self.handler.end_headers()
+    self.responseSent = True
+    if sendData:
+      self.sendData()
+    return True
+        
+  def sendData(self):
+    while len(self.buffer) > 0:
+      self.handler.wfile.write(self.buffer[:self.CHUNK_SIZE])
+      self.buffer = self.buffer[self.CHUNK_SIZE:]
+      
+  def sendError(self, errorMsg = "[No message]"):
+    self.buffer = ("Error: " + errorMsg).encode(self.ENCODING)
+    self.sendResponse(http.client.INTERNAL_SERVER_ERROR)
     
   #This will actually do the sending of the response over a handler
+  #PRE: path is the path requested (not including the group directory element)
+  #     code is the numeric response code to send
+  #     headers is a dict of any additional headers we need to send
   #headers is response headers to send along with the request, NOT THE HEADERS WE GOT
-  def sendFile(self, group, path, code = http.client.OK, headers = {}):
+  def sendFile(self, path, code = http.client.OK, headers = None):
+    if headers == None: headers = Headers()
     if not path: #If the path is blank
-      return self.redirectFile(group, self.PAGE_DEFAULT, headers = headers)
+      return self.redirectFile(self.PAGE_DEFAULT, headers = headers)
       
     path = path.strip("/") #Because I use / for absoulte and it messes up file serving
     
@@ -230,9 +320,9 @@ class Handler:
         if path == "shutdownserver":
           Events.NonBlockingShutdownLock.acquire(blocking = False)
           log.info("SHUTTING DOWN SERVER!!! (from web request)")
-        return self.redirectFile(group, self.PAGE_INDEX)
+        return self.redirectFile(self.PAGE_INDEX)
       else:
-        return self.sendFile(group, "noAuth.html", http.client.FORBIDDEN)
+        return self.sendFile("noAuth.html", http.client.FORBIDDEN)
     
     #Checking for generated files
     if path in self.genFiles:
@@ -241,31 +331,30 @@ class Handler:
       except AttributeError:
         log.web.error("No Generation Function for path",path) #Otherwise just return the basic file and log error
       else: #Don't want to catch errors from these
-        return method(group) #Call the function, passing in what group to call
+        return method() #Call the function
     
     #log.debug("File requested for path: '"+path+"'")
     if not self.existsFile(path):
       path = os.path.join(DEFAULT_DIR, path)
       if not self.existsFile(path) and not path.endswith(self.PAGE_NO_PATH): #We will always be able to access PAGE_NO_PATH, but don't create an infinite loop
         log.net.error("Cannot find file for path '"+path+"', returning",self.PAGE_NO_PATH)
-        #return self.redirectFile(group, self.PAGE_NO_PATH)
-        return self.sendFile(group, self.PAGE_NO_PATH, code = http.client.NOT_FOUND, headers = headers)
+        #return self.redirectFile(self.PAGE_NO_PATH)
+        return self.sendFile(self.PAGE_NO_PATH, code = http.client.NOT_FOUND, headers = headers)
         
     #The page exists
-    self.sendResponse(code, headers)
+    self.sendResponse(code, headers, sendData = False)
     for data in self.yieldFile(path):
       self.handler.wfile.write(data) #Incrementally writes data back to web
         
-  def redirectFile(self, group, path, headers = None):
-    if not headers:
-      headers = {}
+  def redirectFile(self, path, headers = None):
+    if headers == None:
+      headers = Headers()
     headers["Location"] = path
-    return self.sendFile(group, self.PAGE_NO_PATH, code = http.client.FOUND, headers = headers)
+    return self.sendFile(self.PAGE_NO_PATH, code = http.client.FOUND, headers = headers)
     
 class PostHandler(Handler):
-  GEN_PATH     = Files.getFileName("GEN_POST_FILES", prefix = "")
-  
-  def do_password(self, groupNum):
+  def do_password(self):
+    groupNum = self.group
     log.web.debug("Processing Password")
     queries = parse_qs(self.handler.body)
     try:
@@ -273,25 +362,23 @@ class PostHandler(Handler):
       log.website.debug("Password sent:",password)
       if password == ADMIN_PASSWORD: #Possibly set the admin password
         log.web.debug("New admin admitted")
-        self.redirectFile(groupNum, self.PAGE_INDEX, {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
+        self.redirectFile(self.PAGE_INDEX, {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
       elif password == Groups.getGroup(groupNum).getPassword():
         log.web.debug("User entered correct password for group",groupNum)
         id = securityRegister(self.userID, groupNum)
-        self.redirectFile(groupNum, self.PAGE_INDEX, {"Set-Cookie":self.COOKIE_ID+"="+id+NEVER_EXPIRES})
+        self.redirectFile(self.PAGE_INDEX, {"Set-Cookie":self.COOKIE_ID+"="+id+NEVER_EXPIRES})
       else:
-        self.sendFile(groupNum, "password.html") #Just send them back to same page
+        self.redirectFile("password.html") #Just send them back to same page
     except (KeyError, IndexError): #Catch if no password part or no [0] term
       log.web.error("No Password Sent")
-      self.sendResponse(http.client.INTERNAL_SERVER_ERROR)
+      self.sendError("No Password Sent!")
 
   
 class GetHandler(Handler):
-  GEN_PATH     = Files.getFileName("GEN_GET_FILES", prefix = "")
-
-  def do_addresses(self, group):
+  def do_addresses(self):
     log.web.debug("Sending Addresses Screen")
     toSend = self.loadFile(self.PAGE_DEF_GEN)
-    group = Groups.getGroup(group)
+    group = self.groupObj
     if group:
       toWrite = '<table border="1" width="100%">'
       for user in group.users.getUsersSorted(lambda user: user.getName()):
@@ -311,13 +398,14 @@ class GetHandler(Handler):
     toSend = toSend.replace(self.STR_TITLE  , "Addresses")
     toSend = toSend.replace(self.STR_CONTENT, toWrite)
     
-    self.sendResponse()
     self.writeText(toSend)
+    self.sendResponse()
+    
   
-  def do_searchResults(self, group):
+  def do_searchResults(self):
     log.web.debug("Starting search results")
     toSend = self.loadFile(self.PAGE_DEF_GEN)
-    group = Groups.getGroup(group)
+    group = self.groupObj
     if group:
       numFound = 0
       maxResults = 250
@@ -339,9 +427,7 @@ class GetHandler(Handler):
             {text}
             </div></td>
         </tr>\n"""
-        
-        self.sendResponse() #We do this up here so we can start sending the rest
-        
+
         #Send top part of html
         self.writeText(toSend.split(self.STR_CONTENT)[0].replace(self.STR_TITLE, "Search Results"))
         
@@ -408,24 +494,116 @@ class GetHandler(Handler):
         #Send bottom part of html
         self.writeText(toSend.split(self.STR_CONTENT, 1)[1]) #Split with max split size of 1
         
+        self.sendResponse() #Then send all the data
       else:
-        self.sendResponse(http.client.INTERNAL_SERVER_ERROR)
+        self.sendError(self.ERR_NO_GRP)
+        raise RuntimeError("No group found") #Gets picked up to send error
   
-  def do_selectionScreen(self, _): #We don't care for group
+  def do_selectionScreen(self):
     log.web.debug("Sending Selection Screen")
     basicFile = self.loadFile(self.fileName)
     
     content = ""
     for group in Groups.getSortedList(groupType = Groups.MainGroup): #Get a list of all the main groups
       if group.getID() != 99: #If is not error group
-        content += \
-        """<tr onclick="document.location = '{group}/index.html'">
+        content += dedent("""\
+        <tr onclick="document.location = '{group}/index.html'">
           <td valign="middle" style="text-align:center"><p style="font-size:110%;margin:5pt">{groupName}</p><p style="font-size:100%;font-style:italic;color:#008800;margin:5pt">Group {group}</p></td>
           <td width = 1pt><img src="{groupImage}" style="vertical-align:middle;width:90px"></td>
-        </tr>""".format(group = group.getID(), groupName = group.getName(), groupImage = group.image or self.PAGE_ICON)
+        </tr>""".format(group = group.getID(), groupName = group.getName(), groupImage = group.image or self.PAGE_ICON))
       
     basicFile = basicFile.replace(self.STR_CONTENT, content)
     
-    self.sendResponse() #Send good response
     self.writeText(basicFile)
+    self.sendResponse() #Send good response
     
+  def do_users(self):
+    group = self.groupObj
+    if not group:
+      return self.sendError(self.ERR_NO_GRP)
+    file = self.loadFile(self.fileName)
+    names = "<option>[None]</option>\n"
+    #Note: True is for "preferGroupMe"
+    nextUser = lambda user: "<option value='{}'>{}</option>\n".format(user.ID, user.getName(True))
+    for user in group.users.getUsersSorted(lambda user: user.getName(True)):
+      names += nextUser(user)
+    file = file.replace(self.STR_CONTENT, names, 1)
+    
+    self.writeText(file)
+    self.sendResponse()
+  
+  #This should be called from the users page only
+  #in mode 'get' will return html for viewing the users names
+  #in mode 'set' will set a name as the user's real name
+  #in mode 'remove' will remove the given name
+  #in mode 'add' will add the given name
+  #PARAM: type - the mode this function operates in
+  #       user - the id of the requested user
+  #       name - the name to do a function with (only in 'set' and 'remove')
+  #POST: in modes besides 'get' will send "success" if the name existed already and "failure" if it did not
+  @extSupport("") #Supports only empty extension
+  def do_userRequest(self):
+    group = self.groupObj
+    if not group:
+      return self.sendError(self.ERR_NO_GRP)
+      
+    log.debug("Params: ",self.params)
+      
+    try:
+      mode = self.params['type'][0]
+      userID = self.params['user'][0] #Each key of params is a list
+      user = group.users.getUserFromID(userID)
+      log.web.debug("Found user from", userID,":",user)
+      if not user: raise KeyError
+    except KeyError:
+      return self.sendError("No user found/sent or improper parameters")
+      
+    name = self.params.get('name', (None,))[0] #Gets the name if it exists (default None)
+    
+    toSend = ""
+    if mode == "get":
+      log.web.debug("Mode: Get")
+      toSend+= "Note: <b>R</b> is for 'Real Name' and <b>D</b> is for 'Delete Name'<br>The box at the top is for adding new names<br><br>"
+      toSend+= "Data for user: <b>{}</b>\n".format(user.getName(preferGroupMe = True))
+      toSend+= dedent("""\
+        <table border=1>
+          <tr>
+            <td colspan="3"><center>User's Names</center></td>
+          </tr>
+          <tr>
+            <td><center><input style="width:95%" type="text" id="nameSubmit"></center></td>
+            <td colspan="2"><center><input onclick="newName()" type="submit" value="New!"></center></td>
+          </tr>
+      """)
+      for name in sorted(user.alias):
+        toSend+= "<tr>\n"
+        toSend+= "  <td><span style='margin:10px'>{}</span></td>\n".format(user.specifyName(name))
+        if name != user.realName:
+          toSend+= "  <td><input type='submit' onclick='{}' value='R' title='Make this name the real name'></td>\n"\
+          .format("setName(\""+name.replace("'","\'")+"\")")
+        else:
+          toSend+= "  <td></td>\n" # If this is the real name, don't include it
+        if name != user.GMName:
+          toSend+= "  <td><input type='submit' onclick='{}' value='D' title='Delete this name for this user'></td>\n"\
+          .format("removeName(\""+name.replace("'","\'")+"\")")
+        else:
+          toSend+= "  <td></td>\n" #Cannot remove groupMe name
+        toSend+= "</tr>\n"
+      toSend+= "</table>"
+    else:  
+      if mode == "set": #We are setting a name as real name
+        log.web.debug("Mode: Set")
+        toSend+= "success" if (user.hasName(name) and user.addName(name, realName = True)) else "failure"
+          
+      elif mode == "remove": #We are removing the given name
+        log.web.debug("Mode: Remove")
+        toSend+= "success" if (user.hasName(name) and user.removeName(name)) else "failure"
+        
+      elif mode == "add": #We are adding a new name
+        log.web.debug("Mode: Add")
+        toSend+= "success" if user.addAlias(name) else "failure"
+       
+      group.save()
+    
+    self.writeText(toSend)
+    self.sendResponse()

@@ -61,22 +61,23 @@ class Server(http.server.HTTPServer):
     log.error("==== ERROR OCCURRED IN SERVER. PRINTING ERROR ====")
     log.error(errorMessage) #Output the message to logging
     
-    sendGroup = makeNamedGroup(99, "23222092", ("27094908", Files.getTokenList()[0]))
-    sendGroup.setBot("3da109b71b8c3363c4b87a7e67")
-    sendGroup.save()
-    
-    try:
-      if SEND_ERRORS_OVER_GROUPME and sendGroup:
-        log.network.statePush(False)
-        success = sendGroup.handler.write("\nMESSAGE FOR YOU SIR:\n" + errorMessage)
-        log.network.statePop()
-        if success:
-          log.error("Successful error report sent")
-        else:
-          log.error("Failed to send error report")
+    if SEND_ERRORS_OVER_GROUPME:
+      sendGroup = makeNamedGroup(99, "23222092", ("27094908", Files.getTokenList()[0]))
+      sendGroup.setBot("3da109b71b8c3363c4b87a7e67")
+      sendGroup.save()
+      
+      try:
+        if sendGroup:
+          log.network.statePush(False)
+          success = sendGroup.handler.write("\nMESSAGE FOR YOU SIR:\n" + errorMessage)
+          log.network.statePop()
+          if success:
+            log.error("Successful error report sent")
+          else:
+            log.error("Failed to send error report")
           
-    except Exception as e: #I don't care about any errors here. jk
-      raise e #Jk I do
+      except Exception as e: #I don't care about any errors here. jk
+        raise e #Jk I do
 
   def finish_request(self, request, client_address):
     #Sets a lock object for the server. Updating groups/data in another thread will lock the server from responding to a request
@@ -265,6 +266,7 @@ def main():
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
     try:
+      log.web("Starting server on port",Network.SERVER_CONNECTION_PORT)
       server.serve_forever()
     except KeyboardInterrupt:
       pass

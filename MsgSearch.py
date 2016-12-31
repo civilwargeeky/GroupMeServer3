@@ -54,10 +54,12 @@ class Searcher():
     
   ### File Functions ###
     
-  def _save(self):
+  #locationOverride used to save a msgSearch to another location
+  def _save(self, locationOverride = None):
+    location = locationOverride if locationOverride is not None else self.fileName
     if self._hasLoaded: #If hasn't loaded, nothing has changed yet (can't, hasn't been loaded)
       log.save.low("Saving",self)
-      with Files.SafeOpen(self.fileName, "w") as file:
+      with Files.SafeOpen(location, "w") as file:
         try:
           Files.write(file, self.group.parent.groupID)
         except AttributeError:
@@ -115,8 +117,8 @@ class Searcher():
     toPlace = []
     shouldContinue = True #Used in message processing to signal we found our last found message
     nextSearch = "" #The id to search from before_id next
-    startCount = 0 #These are used to see if any messages were sent while we were indexing
-    endCount   = 0 
+    startCount = None #These are used to see if any messages were sent while we were indexing
+    endCount   = None 
     while shouldContinue:
       #We get the last 100 messages from groupMe. There isn't much difference in time getting a hundred vs getting one, so its not worth to check if we are up to date
       #These messages come in in newest-oldest ordering
@@ -125,7 +127,7 @@ class Searcher():
         messageStack = response['messages']
         nextSearch = messageStack[-1]['id']
         endCount = response['count']
-        if not startCount: startCount = endCount #Only update if we haven't done any messages yet
+        if startCount == None: startCount = endCount #Only update if we haven't done any messages yet
         for i in range(len(messageStack)):
           if messageStack[i]['id'] == toStopAtID:
             shouldContinue = False
@@ -141,6 +143,9 @@ class Searcher():
         time.sleep(1) #This usually means we are sending too many messages at once
       else:
         raise RuntimeError("ERROR IN GENERATE CACHE: RECEIVED response.code " + str(response.code))
+        
+      if Events.IS_TESTING and len(toPlace) >= 500: #During testing, we want this to end sometime soon
+        break
         
     #Getting here means we have collected all the messages we can
     toPlace.reverse() #Get all messages to append in oldest-newest order
