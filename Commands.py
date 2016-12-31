@@ -166,7 +166,7 @@ class Command():
                      "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart", \
                      "id"]}
     #Example: {"residence":"address"}
-    self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
+    self.commands.update({"website":"help", "jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
                           "called":"name", "love":"human affection"})
     
     self.group = group
@@ -184,6 +184,7 @@ class Command():
     #Thsee are for left and right of command
     self.leftString   = None
     self.rightString  = None
+    self.wholeString  = None #Left + " " + Right
     
     log.command.low("Command String:",self.message)
     for command in self.commands:
@@ -193,7 +194,7 @@ class Command():
         methodName = "do_"+methodize(self.commands[command] or command)
         self.leftString  = self.message[:match.start()].rstrip()
         self.rightString = self.message[match.end():].lstrip()
-        self.bothString  = self.leftString + self.rightString
+        self.wholeString  = self.leftString + " " + self.rightString
         log.command.low("Left:",self.leftString)
         log.command.low("Right:",self.rightString)
         try:
@@ -315,11 +316,11 @@ class Command():
     return toRet
     
   def do_id(self):
-    pass
+    self.setRecipient(self.wholeString.replace("'s",""))
     
   def handle_id(self):
     if self.recipientObj:
-      return self.recipientObj.id
+      return "ID for " + self.recipientObj.getName() + " is " + self.recipientObj.ID
     return "No user found to get ID"
     
   #do_joke objects will have a special ".jokeHandler" attribute
@@ -327,7 +328,7 @@ class Command():
   #Uses verbs: get, subscribe, unsubscribe
   def do_joke(self):
     self.verb = "get"
-    if findWord(["types","kinds","categories"], self.bothString): #If these are in either
+    if findWord(["types","kinds","categories"], self.wholeString): #If these are in either
       self.specifier = "type"
       return #Don't do anything else
     
@@ -340,7 +341,7 @@ class Command():
       
     #Tries to get another type of joke, otherwise returns default
     jokeIdentifier = self.leftString.split(" ")[-1]
-    self.jokeHandler = Jokes.getJokeType(self.bothString) or Jokes.joke
+    self.jokeHandler = Jokes.getJokeType(self.wholeString) or Jokes.joke
     
     if self.jokeHandler == Jokes.joke:
       self.details = jokeIdentifier
@@ -504,7 +505,7 @@ class Command():
     
   def do_human_affection(self):
     log.command("Searching for human affection")
-    self.recipientObj = self.group.users.getUser(self.bothString)
+    self.recipientObj = self.group.users.getUser(self.wholeString)
     
   def handle_human_affection(command):
     toSend = command.sender
@@ -516,7 +517,7 @@ class Command():
       return u"Love you \u2764"
       
   def do_group_password(self): 
-    if findWord(["whats?","get"], self.bothString):
+    if findWord(["whats?","get"], self.wholeString):
       self.verb = "get"
     else:
       self.verb = "set"
