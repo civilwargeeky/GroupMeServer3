@@ -76,7 +76,6 @@ class Searcher():
       log.save.low("Loading",self)
       self._hasLoaded = True
       try:
-        log.debug("Looking for file: ", self.fileName)
         with open(self.fileName, "r") as file:
           self.parentID = Files.read(file)
           self._messageList = json.load(file)

@@ -7,7 +7,7 @@ import re
 import os
 from textwrap import dedent
 from time import time
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode
 from uuid import uuid4
 
 import Events
@@ -100,10 +100,14 @@ class Headers():
       self._data[header] = [value,]
     else:
       self._data[header].append(value)
+      
+  #Like getitem, but always returns list
+  def get(self, key):
+    return self.__getitem__(key, alwaysList = True)
     
   #POST: If the key does not exist, raises KeyError. If the key has 1 value, returns the value. If more than 1, returns a list
-  def __getitem__(self, key):
-    if len(self._data[key]) > 1:
+  def __getitem__(self, key, alwaysList = False):
+    if alwaysList or len(self._data[key]) > 1:
       return self._data[key][:] #Return a copy, no data editing
     return self._data[key][0] #If only one value, return the value
     
@@ -117,7 +121,21 @@ class Headers():
   def __iter__(self): return self._data.__iter__()
   def __delitem__(self, key): del self._data[key]
   def __contains__(self, key): return key in self._data
+  def __len__(self): return self._data.__len__()
     
+    
+#PRE: Takes a mapping or Headers object
+#POST: If any values, returns "?" followed by the values encoded as url parameters. Otherwise ""
+def addParams(obj):
+  if len(obj) == 0:
+    return ""
+  if type(obj) == Headers:
+    tempObj = []
+    for key in obj:
+      for val in obj[key]:
+        tempObj.append((key,val))
+    return "?"+urlencode(tempObj)
+  return "?"+urlencode(obj)
     
 ### REQUEST HANDLING ###
 
@@ -233,7 +251,7 @@ class Handler:
     self.userID = getCookie(self.cookies, self.COOKIE_ID)
     if not securityCanAccess(self.userID, self.group) and not self.fileName.endswith("password.html"):
       log.security("User not allowed to access", self.fileName+", returning password page")
-      return self.redirectFile("password.html")
+      return self.redirectFile("password.html"+addParams({"redirect":self.fileName})) #Redirect back to the requested page when done
     
     try:
       return self.sendFile(self.fileName)
@@ -296,7 +314,7 @@ class Handler:
       self.buffer = self.buffer[self.CHUNK_SIZE:]
       
   def sendError(self, errorMsg = "[No message]"):
-    self.buffer = ("Error: " + errorMsg).encode(self.ENCODING)
+    self.buffer = ("Error: " + errorMsg + "\n").encode(self.ENCODING)
     self.sendResponse(http.client.INTERNAL_SERVER_ERROR)
     
   #This will actually do the sending of the response over a handler
@@ -310,19 +328,6 @@ class Handler:
       return self.redirectFile(self.PAGE_DEFAULT, headers = headers)
       
     path = path.strip("/") #Because I use / for absoulte and it messes up file serving
-    
-    isAdmin = getCookie(self.cookies, "administrator")
-    if path in ["restartserver","shutdownserver"]:
-      if isAdmin: #Here be admin access
-        if path == "restartserver":
-          Events.NonBlockingRestartLock.acquire(blocking = False)
-          log.info("Restarting Server (from web request)!")
-        if path == "shutdownserver":
-          Events.NonBlockingShutdownLock.acquire(blocking = False)
-          log.info("SHUTTING DOWN SERVER!!! (from web request)")
-        return self.redirectFile(self.PAGE_INDEX)
-      else:
-        return self.sendFile("noAuth.html", http.client.FORBIDDEN)
     
     #Checking for generated files
     if path in self.genFiles:
@@ -350,9 +355,12 @@ class Handler:
     if headers == None:
       headers = Headers()
     headers["Location"] = path
-    return self.sendFile(self.PAGE_NO_PATH, code = http.client.FOUND, headers = headers)
+    return self.sendResponse(http.client.FOUND, headers, sendData = False)
     
 class PostHandler(Handler):
+
+  #Note: If they are redirected from handle (not having access), they should have a "redirect" parameter
+  #This will always return 200, but the value of the response determines what happens
   def do_password(self):
     groupNum = self.group
     log.web.debug("Processing Password")
@@ -362,13 +370,19 @@ class PostHandler(Handler):
       log.website.debug("Password sent:",password)
       if password == ADMIN_PASSWORD: #Possibly set the admin password
         log.web.debug("New admin admitted")
-        self.redirectFile(self.PAGE_INDEX, {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
+        self.writeText("Admin Access Granted!")
+        self.sendResponse(headers = {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
       elif password == Groups.getGroup(groupNum).getPassword():
         log.web.debug("User entered correct password for group",groupNum)
         id = securityRegister(self.userID, groupNum)
-        self.redirectFile(self.PAGE_INDEX, {"Set-Cookie":self.COOKIE_ID+"="+id+NEVER_EXPIRES})
+        #This is the next site to visit, and is stored as a header in "Location"
+        nextPage = self.params['redirect'][0] if 'redirect' in self.params else self.PAGE_INDEX
+        #Sends 200 even though its a redirect because AJAX will just follow redirects. Not what I want
+        self.sendResponse(headers = {"Set-Cookie":self.COOKIE_ID+"="+id+NEVER_EXPIRES, "Location":nextPage})
       else:
-        self.redirectFile("password.html") #Just send them back to same page
+        log.web.debug("Password incorrect")
+        self.writeText("Password Incorrect!")
+        self.sendResponse()
     except (KeyError, IndexError): #Catch if no password part or no [0] term
       log.web.error("No Password Sent")
       self.sendError("No Password Sent!")
@@ -401,6 +415,11 @@ class GetHandler(Handler):
     self.writeText(toSend)
     self.sendResponse()
     
+  @extSupport("")
+  def do_getLog(self):
+    fileName = Files.getLog()
+    log.web.debug("Redirecting to log file:",fileName)
+    self.redirectFile("/"+fileName)
   
   def do_searchResults(self):
     log.web.debug("Starting search results")
@@ -496,8 +515,8 @@ class GetHandler(Handler):
         
         self.sendResponse() #Then send all the data
       else:
-        self.sendError(self.ERR_NO_GRP)
-        raise RuntimeError("No group found") #Gets picked up to send error
+        self.sendError("No query found in search!")
+        raise RuntimeError("No query in search") #Gets picked up to send error
   
   def do_selectionScreen(self):
     log.web.debug("Sending Selection Screen")
@@ -516,6 +535,24 @@ class GetHandler(Handler):
     
     self.writeText(basicFile)
     self.sendResponse() #Send good response
+    
+  @extSupport("")
+  def do_shutdownserver(self):
+    if getCookie(self.cookies, "administrator"): #Here be admin access
+      Events.NonBlockingShutdownLock.acquire(blocking = False)
+      log.info("SHUTTING DOWN SERVER!!! (from web request)")
+      return self.redirectFile(self.PAGE_DEFAULT)
+    else:
+      return self.sendFile("noAuth.html", http.client.FORBIDDEN)
+          
+  @extSupport("")
+  def do_restartserver(self):
+    if getCookie(self.cookies, "administrator"): #Here be admin access
+      Events.NonBlockingRestartLock.acquire(blocking = False)
+      log.info("Restarting Server (from web request)!")
+      return self.redirectFile(self.PAGE_DEFAULT)
+    else:
+      return self.sendFile("noAuth.html", http.client.FORBIDDEN)
     
   def do_users(self):
     group = self.groupObj
@@ -546,8 +583,6 @@ class GetHandler(Handler):
     group = self.groupObj
     if not group:
       return self.sendError(self.ERR_NO_GRP)
-      
-    log.debug("Params: ",self.params)
       
     try:
       mode = self.params['type'][0]
@@ -592,15 +627,15 @@ class GetHandler(Handler):
       toSend+= "</table>"
     else:  
       if mode == "set": #We are setting a name as real name
-        log.web.debug("Mode: Set")
+        log.web.debug("Mode: Set real name to", name)
         toSend+= "success" if (user.hasName(name) and user.addName(name, realName = True)) else "failure"
           
       elif mode == "remove": #We are removing the given name
-        log.web.debug("Mode: Remove")
+        log.web.debug("Mode: Removing name -",name)
         toSend+= "success" if (user.hasName(name) and user.removeName(name)) else "failure"
         
       elif mode == "add": #We are adding a new name
-        log.web.debug("Mode: Add")
+        log.web.debug("Mode: Adding name",name)
         toSend+= "success" if user.addAlias(name) else "failure"
        
       group.save()

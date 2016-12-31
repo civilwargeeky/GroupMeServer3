@@ -169,12 +169,14 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
 def makeNamedGroup(id, groupID, idTuple, initialPassword = None):
   if not Groups.getGroup(id):
     toRet = Groups.MainGroup(id, groupID)
-    if initialPassword:
-      toRet.setPassword(initialPassword)
     user = toRet.users.addUser(Users.User(toRet, idTuple[0])).setToken(idTuple[1])
     user.save()
   else:
     toRet = Groups.getGroup(id)
+    
+  #Regardless, set the password
+  if initialPassword:
+    toRet.setPassword(initialPassword)
   return toRet
   
 def purgeGroups():
@@ -228,7 +230,7 @@ def main():
   
   toriGroup = makeNamedGroup(15, "23317842", put, "DLARulez")
   
-  groupFam  = makeNamedGroup(2, "13972393", put, "CieloIsPrettyHip")
+  groupFam  = makeNamedGroup(2, "13972393", put, "easier")
   groupFam.setBot("cfe41d49a83d73874f4aa547b9")
 
   try: #This is so we can have our finally block remove any extra threads in case of error

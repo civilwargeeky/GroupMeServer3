@@ -46,6 +46,25 @@ def deleteFile(file):
       return False
 
 #### Utilities ####
+
+#This gets the specified log file, or most recent log file if None
+#PRE: num should be an integer. If num < 0, will index from the last log file. logName is the name of the log file (it will be appended _num)
+#POST: returns the requested log file. log file may or may not exist depending on number requested. If last log file number - num is < 0, will return log file 0
+def getLog(num = -1, logName = "log"):
+  if type(num) == int and num >= 0:
+    return getFileName(logName+"_"+str(num))
+  
+  #Otherwise we are searching for largest
+  count = 0
+  while count < 1000: #Arbitrary high number
+    curr = getFileName(logName+"_"+str(count))
+    if not os.path.exists(curr): #Returns descriptor to num-1 away from end (-1 will give end, -2 will give second to last)
+     return getFileName(logName+"_"+str(max(count+num,0)))
+    count += 1
+
+def getLogHandle(*arg, **kwarg):
+  return open(getLog(*arg, **kwarg))
+    
 def write(file, text): #Writes text with a newline
   file.write(text)
   file.write("\n")

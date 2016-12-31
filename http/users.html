@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>User Page</title>
     <link rel="stylesheet" href="/style.css">
+    <script src="/AJAX.js"></script>
   </head>
   <body>
     <table><tr><td><a href="index.html"><img src="/favicon.ico" ></a></td><td style="padding:10px"><h1>User Editor Page</h1></td></tr></table>
@@ -21,41 +22,6 @@
   </body>
   
   <script>
-    //A function for making a new AJAX request. Has actions to complete on success, 404, 500, and other. Passes the requester object to functions
-    var actionRequest = function(parameter, on200, on404, on500, onOther) {
-      var httpRequester = new XMLHttpRequest() //Make a new one of these
-      //Ideally, we will just replace the html in the "userSelection" div with whatever we get here
-      httpRequester.responseType = "text"; //This defines what type of data will be returned from the request
-      //NOTE: nameVAL should be the user's ID number, not their displayed name!
-      httpRequester.open("GET", parameter); //Sends a request for the given user's information
-      httpRequester.setRequestHeader("Cache-Control","no-cache") //Apparently requests will be cached and no data will be resent after stuff is changed
-      httpRequester.send(null);
-      
-      var test = function(func) {
-        if (typeof(func) != "function") {
-          if ((typeof(func) == "string" && func.length > 0) && func != null) {
-            alert(func);
-          }
-        } else {
-          func(httpRequester);
-        }
-      }
-      
-      httpRequester.onreadystatechange = function() {
-        if (httpRequester.readyState == XMLHttpRequest.DONE) { //If we have processed the request
-          if (httpRequester.status == 200) { //Our request was successful
-            test(on200);
-          } else if (httpRequester.status == 404) {
-            test(on404);
-          } else if (httpRequester.status == 500) {
-            test(on500);
-          } else {
-            test(onOther);
-          }
-        }
-      }
-    }
-    
     //Utility function
     var requestString = function(type, id, name) {
       return "userRequest?type="+encodeURIComponent(type)+"&user="+encodeURIComponent(id)+"&name="+encodeURIComponent(name)
