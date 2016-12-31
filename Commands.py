@@ -163,8 +163,8 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart" \
-                     ]}
+                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart", \
+                     "id"]}
     #Example: {"residence":"address"}
     self.commands.update({"jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
                           "called":"name", "love":"human affection"})
@@ -313,6 +313,14 @@ class Command():
           if subAddress:
             toRet += "--" + modifier.title() + ": " + subAddress + "\n"
     return toRet
+    
+  def do_id(self):
+    pass
+    
+  def handle_id(self):
+    if self.recipientObj:
+      return self.recipientObj.id
+    return "No user found to get ID"
     
   #do_joke objects will have a special ".jokeHandler" attribute
   #because spcifier can be an int, this also uses "details" if we have a variant of standard joke

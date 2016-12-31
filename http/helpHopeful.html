@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help Page</title>
+  <link rel="stylesheet" href="/style.css">
+  
+  <script>
+    function toggleVisibility(element) {
+      children = element.parentElement.children; //This should be the td
+        for (var i = 0; i < children.length; i++)
+          if (children[i].className == "HelpText") {
+            if (children[i].style.display != "none")
+              children[i].style.display = "none";
+            else
+              children[i].style.display = "";
+          }
+    }
+  
+  </script>
+  
+</head>
+<body>
+
+  <table><tr><td><a href="index.html"><img src="/favicon.ico" ></a></td><td style="padding:10px"><h1>Help Page!</h1></td></tr></table>
+
+  <table border="5" width="100%">
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Click Me!
+        </p>
+        <p class="HelpText" style="display:none">
+          Click on the boxed titles to open up sections of the help menu.
+          <br>Each section has a description of the command, followed by example usages.
+          <br>The usage would be used as if you did "@botsly [usage line]". I.E.
+          <br>
+          <br>Usage:
+          <br>&nbsp&nbsphelp
+          <br>
+          <br>Would indicate you should do "@botsly help" to use the command in that way
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Names
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Nicknames: Get a list of your nicknames, everyone's nicknames, or set anyone's nickname</li>
+            Usage:
+            <p class = "UsagePoint">all nicknames<br>@person's nicknames<br>my nickname is Late for Dinner<br>person's alias is Shirley</p>
+            
+            <li class = "UsageList">ID: Get your "GroupMe ID" for whatever reason. (For reals, only Daniel would use this)</li>
+            Usage:
+            <p class = "UsagePoint">my id<br>@person's id</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Address
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Address: Set your own address. If you start with "college" you can set your college address. If there is nothing after "address" you can ask for someone's address or college address.</li>
+            Usage:
+            <p class = "UsagePoint">my address is 100 N. Main Street<br>@personGuy's college address is 101 N. Main Street<br>my address<br>@someone's college address</p>
+            
+            <li class = "UsageList">All Addresses:</li>
+            Usage:
+            <p class = "UsagePoint">YOU KNOW EXACTLY WHAT THIS DOES</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Vacation
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Vacation: Set a vacation for yourself or someone else. They are of the form "[person] will be going on vacation to [place] from [start time] to [end time]" but the search is pretty lenient for what words you use.</li>
+            Usage:
+            <p class = "UsagePoint">I'm going on vacation to Cancun from today until Saturday (will do today's date through the Saturday of this week)</p>
+            <p class = "UsagePoint">Joe is going on vacation to 100 E. Jerry Way from July 3rd through August 17th</p>
+            
+            <li class = "UsageList">Vacations: See who's going where. You can see your own vacations, and a list of all vacations</li>
+            Usage:
+            <p class = "UsagePoint">All vacations</p>
+            <p class = "UsagePoint">My vacations</p>
+            <p class = "UsagePoint">Joe's vacations</p>
+            
+            <li class = "UsageList">Remove Vacation: You can remove vacations if you are not going on them anymore. If you do "my vacations", each vacation has a number. Use that number to remove vacations</li>
+            Usage:
+            <p class = "UsagePoint">Remove vacation 1</p>
+            <p class = "UsagePoint">Remove my vacation 2</p>
+            <p class = "UsagePoint">Remove Joe's vacation 1</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Analytics
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Stats: Get stats on how many messages you post, how many per day, messages in a row, etc. Use "all" to get it for everyone</li>
+            Usage:
+            <p class = "UsagePoint">my stats<br>@someone's stats<br>all stats</p>
+
+            <li class = "UsageList">Leaderboard: See who posts the most messages per day :)  (Note it only counts days where at least one message has been posted)</li>  
+            Usage:
+            <p class = "UsagePoint">leaderboard</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Fun
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Joke: Get some jokes from some website! You can also specify the number, and category of joke</li>
+            Joke Categories: <br>&nbsp;&nbsp;"haha"<br>&nbsp;&nbsp;"signs"<br>&nbsp;&nbsp;"nerd"<br>&nbsp;&nbsp;"professional"<br>&nbsp;&nbsp;"quotest"<br>&nbsp;&nbsp;"lightbulb"<br>&nbsp;&nbsp;"blonde"<br>&nbsp;&nbsp;"laws" <br>
+            Usage:
+            <p class = "UsagePoint">joke<br>tell me a joke<br>tell me some jokes<br>tell me some nerd jokes<br>tell me 6 blonde jokes<br>tell me 2 jokes</p>
+
+            <li class = "UsageList">Leaderboard: See who posts the most messages per day :)  (Note it only counts days where at least one message has been posted)</li>  
+            Usage:
+            <p class = "UsagePoint">leaderboard</p>
+            
+            <li class = "UsageList">Bat Facts! You can subscribe or unsubscribe from batfacts, and they will be posted every time you post! Because your here, I'll tell you to unsubscribe you must say please</li>  
+            Usage:
+            <p class = "UsagePoint">subscribe to bat facts<br>please unsubscribe me :)</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+  </table>
+  
+</body>
+</html>

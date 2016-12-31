@@ -50,11 +50,19 @@
         </p>
         <div class="HelpText" style="display:none">
           <ul>
-            <li class = "UsageList">Nicknames: Get a list of your nicknames, everyone's nicknames, or set anyone's nickname</li>
+            <li class = "UsageList">Name: Set a name for someone. If you specify "real" it will set it as their real name</li>
             Usage:
-            <p class = "UsagePoint">all nicknames<br>@person's nicknames<br>my nickname is Late for Dinner<br>person's alias is Shirley</p>
+            <p class = "UsagePoint">my name is Bill</p>
+            <p class = "UsagePoint">@JerryTron49's real name is Jerry</p>
             
-            <li class = "UsageList">ID: Get your "GroupMe ID" for whatever reason. (For reals, only Daniel would use this)</li>
+            <li class = "UsageList">Names: List names. If you specify "all" it will print out all names for everyone</li>
+            Usage:
+            <p class = "UsagePoint">my names</p>
+            <p class = "UsagePoint">Jerry's names</p>
+            <p class = "UsagePoint">all names</p>
+            
+            
+            <li class = "UsageList">ID: Get your "GroupMe ID" for whatever reason.</li>
             Usage:
             <p class = "UsagePoint">my id<br>@person's id</p>
           </ul>
@@ -68,13 +76,14 @@
         </p>
         <div class="HelpText" style="display:none">
           <ul>
-            <li class = "UsageList">Address: Set your own address. If you start with "college" you can set your college address. If there is nothing after "address" you can ask for someone's address or college address.</li>
+            <li class = "UsageList">Address: Set an address. If you start with "college" you can set your college address. If there is nothing after "address" you can ask for someone's address or college address.</li>
             Usage:
             <p class = "UsagePoint">my address is 100 N. Main Street<br>@personGuy's college address is 101 N. Main Street<br>my address<br>@someone's college address</p>
             
-            <li class = "UsageList">All Addresses:</li>
+            <li class = "UsageList">All Addresses: Returns all addresses for everyone. Can specify with "college" or nah</li>
             Usage:
-            <p class = "UsagePoint">YOU KNOW EXACTLY WHAT THIS DOES</p>
+            <p class = "UsagePoint">All addresses</p>
+            <p class = "UsagePoint">All college addresses</p>
           </ul>
         </div>
       </td>
@@ -86,22 +95,7 @@
         </p>
         <div class="HelpText" style="display:none">
           <ul>
-            <li class = "UsageList">Vacation: Set a vacation for yourself or someone else. They are of the form "[person] will be going on vacation to [place] from [start time] to [end time]" but the search is pretty lenient for what words you use.</li>
-            Usage:
-            <p class = "UsagePoint">I'm going on vacation to Cancun from today until Saturday (will do today's date through the Saturday of this week)</p>
-            <p class = "UsagePoint">Joe is going on vacation to 100 E. Jerry Way from July 3rd through August 17th</p>
-            
-            <li class = "UsageList">Vacations: See who's going where. You can see your own vacations, and a list of all vacations</li>
-            Usage:
-            <p class = "UsagePoint">All vacations</p>
-            <p class = "UsagePoint">My vacations</p>
-            <p class = "UsagePoint">Joe's vacations</p>
-            
-            <li class = "UsageList">Remove Vacation: You can remove vacations if you are not going on them anymore. If you do "my vacations", each vacation has a number. Use that number to remove vacations</li>
-            Usage:
-            <p class = "UsagePoint">Remove vacation 1</p>
-            <p class = "UsagePoint">Remove my vacation 2</p>
-            <p class = "UsagePoint">Remove Joe's vacation 1</p>
+            yup... this definitely exists right now...
           </ul>
         </div>
       </td>
@@ -113,13 +107,7 @@
         </p>
         <div class="HelpText" style="display:none">
           <ul>
-            <li class = "UsageList">Stats: Get stats on how many messages you post, how many per day, messages in a row, etc. Use "all" to get it for everyone</li>
-            Usage:
-            <p class = "UsagePoint">my stats<br>@someone's stats<br>all stats</p>
-
-            <li class = "UsageList">Leaderboard: See who posts the most messages per day :)  (Note it only counts days where at least one message has been posted)</li>  
-            Usage:
-            <p class = "UsagePoint">leaderboard</p>
+            probably something... eventually
           </ul>
         </div>
       </td>
@@ -131,18 +119,42 @@
         </p>
         <div class="HelpText" style="display:none">
           <ul>
-            <li class = "UsageList">Joke: Get some jokes from some website! You can also specify the number, and category of joke</li>
+            <li class = "UsageList">Joke: Get some jokes from some website! You can also specify the number, and category of joke. You can also request different types of jokes</li>
             Joke Categories: <br>&nbsp;&nbsp;"haha"<br>&nbsp;&nbsp;"signs"<br>&nbsp;&nbsp;"nerd"<br>&nbsp;&nbsp;"professional"<br>&nbsp;&nbsp;"quotest"<br>&nbsp;&nbsp;"lightbulb"<br>&nbsp;&nbsp;"blonde"<br>&nbsp;&nbsp;"laws" <br>
+            Joke Types: <br>&nbsp;&nbsp;Pokemon Joke<br>&nbsp;&nbsp;Squirrel Fact<br>&nbsp;&nbsp;Bat Fact<br>&nbsp;&nbsp;Turtle Fact<br>&nbsp;&nbsp;Bird Fact<br>&nbsp;&nbsp;Aww Fact<br>&nbsp;&nbsp;Fun Fact<br>&nbsp;&nbsp;Snek Pic<br>&nbsp;&nbsp;Corgi Pic<br>
             Usage:
-            <p class = "UsagePoint">joke<br>tell me a joke<br>tell me some jokes<br>tell me some nerd jokes<br>tell me 6 blonde jokes<br>tell me 2 jokes</p>
-
-            <li class = "UsageList">Leaderboard: See who posts the most messages per day :)  (Note it only counts days where at least one message has been posted)</li>  
-            Usage:
-            <p class = "UsagePoint">leaderboard</p>
+            <p class = "UsagePoint">joke<br>tell me a joke<br>tell me some jokes<br>tell me some nerd jokes<br>tell me 6 blonde jokes<br>tell me 2 jokes<br>show me a snek pic<br>let's get 5 aww facts up in here</p>
             
-            <li class = "UsageList">Bat Facts! You can subscribe or unsubscribe from batfacts, and they will be posted every time you post! Because your here, I'll tell you to unsubscribe you must say please</li>  
+            <li class = "UsageList">Subscriptions! To every joke or fact, you can be subscribed or unsubscribed. 
+            <br>If you are subscribed, a joke will be posted either every time you post a message (jokes) or every time your post has a keyword in it (facts)
+            <br>To unsubscribe from some you may have to ask nicely :) </li>  
             Usage:
-            <p class = "UsagePoint">subscribe to bat facts<br>please unsubscribe me :)</p>
+            <p class = "UsagePoint">
+                  subscribe to bat facts
+              <br>please unsubscribe me from bat facts :)
+              <br></p>
+            <li class = "UsageList">Types: You can request to see what types of jokes exist</li>  
+            Usage:
+            <p class = "UsagePoint">joke types<br>fact types</p>
+            <li class = "UsageList">Human Affection: You can request either love or human affection from botsly and he is legally required to oblige</li>
+            Usage:
+            <p class = "UsagePoint">LOVE ME</p>
+            <p class = "UsagePoint">Provide human affection to Joe, you robotic rapscallion</p>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <p class="HelpTitle" onclick="toggleVisibility(this)">
+          Commands: Security
+        </p>
+        <div class="HelpText" style="display:none">
+          <ul>
+            <li class = "UsageList">Group Password: Get or set the password</li>
+            Usage:
+            <p class = "UsagePoint">what is the group password</p>
+            <p class = "UsagePoint">set the group password to muffinstuffins</p>
           </ul>
         </div>
       </td>
