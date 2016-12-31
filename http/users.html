@@ -33,7 +33,7 @@
       
       var test = function(func) {
         if (typeof(func) != "function") {
-          if (func.length > 0) {
+          if ((typeof(func) == "string" && func.length > 0) && func != null) {
             alert(func);
           }
         } else {

@@ -522,7 +522,7 @@ class GetHandler(Handler):
     if not group:
       return self.sendError(self.ERR_NO_GRP)
     file = self.loadFile(self.fileName)
-    names = "<option>[None]</option>\n"
+    names = "<option value=''>[None]</option>\n"
     #Note: True is for "preferGroupMe"
     nextUser = lambda user: "<option value='{}'>{}</option>\n".format(user.ID, user.getName(True))
     for user in group.users.getUsersSorted(lambda user: user.getName(True)):
@@ -580,12 +580,12 @@ class GetHandler(Handler):
         toSend+= "  <td><span style='margin:10px'>{}</span></td>\n".format(user.specifyName(name))
         if name != user.realName:
           toSend+= "  <td><input type='submit' onclick='{}' value='R' title='Make this name the real name'></td>\n"\
-          .format("setName(\""+name.replace("'","\'")+"\")")
+          .format("setName(\""+name.replace("'","\'").replace("\"","\\\"")+"\")")
         else:
           toSend+= "  <td></td>\n" # If this is the real name, don't include it
         if name != user.GMName:
           toSend+= "  <td><input type='submit' onclick='{}' value='D' title='Delete this name for this user'></td>\n"\
-          .format("removeName(\""+name.replace("'","\'")+"\")")
+          .format("removeName(\""+name.replace("'","\'").replace("\"","\\\"")+"\")")
         else:
           toSend+= "  <td></td>\n" #Cannot remove groupMe name
         toSend+= "</tr>\n"
