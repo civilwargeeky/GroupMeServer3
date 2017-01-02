@@ -198,6 +198,8 @@ def main():
   log.network.debug.disable() #Suppress the return value of every message
   #log.command.low.enable() #For going through all the commands every time we get a command
   #log.user.low.enable() #For going through all the users every time we search for a user
+  if Events.IS_TESTING:
+    log.save.low.enable()
   
   #First load all the groups
   log.info("========== PRE-INIT (LOAD) ==========")

@@ -48,7 +48,7 @@ class BaseJoke():
   #A function that should return the string of a joke
   #Typically used internally
   #PRE : Should be given a group so can acquire from the internet
-  #POST: Should return a string. If there is only a joke, should return string. If joke and picture url, should return a 2-tuple of jokeString and urlString
+  #POST: Should return a string. If there is only a joke, should return string. If joke and picture url, should return a 2-tuple of jokeString and urlString. If joke get failed, should return False
   def getJoke(self):
     return ""
     
@@ -64,8 +64,10 @@ class BaseJoke():
   def _postJoke(self, group, joke, fromPoster = False):
     if type(joke) == tuple:
       return group.handler.write(*joke, fromPoster = fromPoster)
-    else:
+    elif type(joke) == str:
       return group.handler.write(joke, self.getPicture(), fromPoster = fromPoster)
+    else:
+      log.joke.error("GET JOKE DID NOT GET JOKE", "Cannot Post Joke/Fact")
     
   #Posts a joke to the group
   #PRE : group should be the group to post to, *arg is passed to getJoke
@@ -127,6 +129,7 @@ class JokeWebsiteParser(html.parser.HTMLParser):
     if self.careData and self.careAtAll:
       self.joke += data.strip()+"\n"
 
+#Standard Joke is the OG internet joke, is a singleton, and this handler existed a LONG time
 class StandardJoke(BaseJoke):
   def __init__(self):
     super().__init__("regular")
@@ -237,7 +240,7 @@ class SimpleFact(SimpleJoke):
   def __init__(self, title, defaultJoke = defaultDefaultJoke):
     super().__init__(title, defaultJoke)
     #If these are pics instead of facts
-    if title.lower().endswith("pic"):
+    if title.lower().split()[1] == 'pic': #Strip any numbers (Corgi Pic 1)
       self.setFactString("PICS")
     
 
@@ -275,81 +278,54 @@ class SimpleFact(SimpleJoke):
         joke += addString
       return self._postJoke(user.group, joke)
     
-#RedditFacts will get the most recent posts from reddit and return them (possibly with attached pictures) as "Facts" from a phony phone number
+#Internet fact is an interface for acquiring, posting, and saving facts from various internet sources
+#Must be initialized with connection parameters and a function to filter raw data
+#Filters facts on functions
 #Inherits SimpleFileJoke for all the File methods, and SimpleFact for makeMessageFun
-class RedditFact(SimpleFileJoke, SimpleFact):
-  #PRE : title should be a human-readable key for the group. Should be "x Fact" where x is "Bat" or "Turtle" or whatever
-  #      subreddit is the /r/subreddit to go to. defaultJoke is what is printed should nothing be able to be loaded
-  #      if requirePictures is True (default False), getting facts will only acquire facts that have sendable pictures with them
-  def __init__(self, title, subreddit, defaultJoke = defaultDefaultJoke, requirePictures = False):
+#  (note: most of this was copied from the original RedditFact)
+class InternetFact(SimpleFileJoke, SimpleFact):
+  TIMEOUT = 10 #Default timeout for internet requests
+
+  #PRE: title should be a human-readable key for the group. Should be "x Fact" where x is "Fun" or "Bat"
+  #     onJokeAcquire should be a function that takes a raw string of internet data and the empty jokes list, and populates the joke list
+  #     urlDomain would be "www.reddit.com" or "www.google.com"
+  #     urlLocation would be "/r/whatever"
+  #     query should be a dict of queries like {"limit":"100"}
+  #     headers should be a dict of headers like {"Thing":"is this"}
+  #     HTTPS specifies if the requests should be over HTTP or HTTPS
+  #     defaultJoke is the default joke
+  def __init__(self, title, onJokeAcquire, urlDomain, urlLocation, query = {}, headers = {}, HTTPS = False, defaultJoke = defaultDefaultJoke):
     super().__init__(title, defaultJoke)
-    self.subreddit       = subreddit
-    self.requirePictures = requirePictures
+    self.onJokeAcquire = onJokeAcquire
+    self.url = urlLocation
+    self.query = query
+    self.headers = headers
     
-    self.connection = Network.Connection("www.reddit.com", https = True)
-    self.factFilters = [] #This is a list of lambda functions that take in a string and return a modified string. Individual subreddits can filter the titles of their facts
-    #The fact filter is used on message acquisition
-    
-  def addFactFilter(self, filterFunc):
-    if type(filterFunc) == type(lambda:None):
-      self.factFilters.append(filterFunc)
+    self.connection = Network.Connection(urlDomain, https = HTTPS)
       
-  def acquireJokes(self): #This 100 most recent bat facts and returns them as a list of tuples (title, pictureUrl)
+  def acquireJokes(self): #Gets new fact(s)
     XML_Dict = {"_":"http://www.w3.org/2005/Atom"}
   
     log.joke("Obtaining new",self.title+"s")
     log.network.low("Suppressing network for joke acquisition")
-    #log.network.debug.pushState(False) #Temporarily turn off network, because this is annoying
-    xmlFeed, code = self.connection.get("/r/"+self.subreddit+"/.rss", query = {"limit":100}, headers = {
-      "Upgrade-Insecure-Requests": "1",
-      "User-Agent": "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "DNT": "1",
-      "Accept-Encoding": "gzip, deflate, sdch, br",
-      "Accept-Language": "en-US,en;q=0.8",
-    })
-    #log.network.debug.popState()
+    try:
+      webContent, code = self.connection.get(self.url, query = self.query, headers = self.headers, timeout = self.TIMEOUT)
+    except OSError:
+      log.web.debug("Socket Timed Out!")
+      return False
     log.joke.debug("Code Received:",code)
     if code != 200: return False
-    obj = xml.XML(xmlFeed)
-    #NOTE: the list saved is a list of tuples of the form [0] = jokeText, [1] = jokeUrl (can be None)
-    toSave = []
-    pictureStrings = ["http://i.imgur.com","https://i.reddituploads.com", "https://upload.wikimedia.org", "http://66.media.tumblr.com"]
-    for entry in obj.findall("_:entry", XML_Dict):
-      title = entry.find("_:title", XML_Dict).text
-      content = entry.find("_:content", XML_Dict).text
-      link = None
-      for string in pictureStrings:
-        if string in content:
-          #Find the link in the content, then split after it up to the next element
-          endPart = content.split(string, 1)[1].split('"',1)[0].replace("&amp;","&") #&amp because weird formatting
-          link = (string+endPart).replace(".gifv","") #Apparently imgur .gifv isn't supported, but just doing the imgur post is
-          
-      removeFact = False
-      #Once we have acquired both, run our filters on the title before saving
-      for func in self.factFilters:
-        title = func(title)
-        if not title:
-          removeFact = True #If returns empty string or false, just get rid of joke altogether
-          break
-          
-      if removeFact: continue #Break out of current iteration
-          
-      log.joke.low("----- NEW JOKE -----")
-      log.joke.low("Title:", title)
-      log.joke.low("Link: ", link)
-      #If we don't have a picture link, we may or may not want to add the message
-      if not self.requirePictures or link:
-        toSave.append( (title, link) ) #Append a tuple of info
-    log.joke.debug("Acquired",len(toSave), self.title+"(s)")
     
-    if not len(toSave):
-      log.joke.error("No",self.title,"jokes were parsed!")
+    #Here is where most of the struggle comes from
+    self.onJokeAcquire(webContent, self.jokes)
+    
+    if len(self.jokes) > 0:
+      log.joke.debug("Acquired",len(self.jokes), self.title+"(s)")
+    else:
+      log.joke.error("No",self.title,"jokes were acquired!")
       return False
       
-    #Now save all facts
-    self.jokes = toSave
-    
+    #Save all jokes we got
     self.save()
     
     return True
@@ -376,7 +352,135 @@ class RedditFact(SimpleFileJoke, SimpleFact):
     if joke[1]:
       return joke
     return joke[0]
+  
     
+#RedditFacts will get the most recent posts from reddit and return them (possibly with attached pictures) as "Facts" from a phony phone number
+#Inherits from InternetFact and adds the concept of factFilters and its own filter function
+class RedditFact(InternetFact):
+  #PRE : title should be a human-readable key for the group. Should be "x Fact" where x is "Bat" or "Turtle" or whatever
+  #      subreddit is the /r/subreddit to go to. defaultJoke is what is printed should nothing be able to be loaded
+  #      if requirePictures is True (default False), getting facts will only acquire facts that have sendable pictures with them
+  def __init__(self, title, subreddit, defaultJoke = defaultDefaultJoke, requirePictures = False):
+    self.requirePictures = requirePictures
+    self.factFilters = [] #This is a list of lambda functions that take in a string and return a modified string. Individual subreddits can filter the titles of their facts
+    #The fact filter is used on message acquisition
+  
+    #getJokeFunc is defined below and returns a function with references to requirePictures and factFilters
+    super().__init__(title, self.getJokeFunc(), "www.reddit.com", "/r/"+subreddit+"/.rss", query = {"limit":100}, headers = {
+      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "accept-encoding": "gzip, deflate, sdch, br",
+      "accept-language": "en-US,en;q=0.8",
+      "dnt": "1",
+      "upgrade-insecure-requests": "1",
+      "user-agent": "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36",
+    }, HTTPS = True, defaultJoke = defaultJoke)
+    
+  def addFactFilter(self, filterFunc):
+    if type(filterFunc) == type(lambda:None):
+      self.factFilters.append(filterFunc)
+      
+  #Just a wrapper so we can get instance data in a static function
+  def getJokeFunc(self):
+    return lambda xmlFeed, jokes: RedditFact.onAcquire(xmlFeed, jokes, self.requirePictures, self.factFilters)
+  
+  #Can't be called onJokeAcquire because it overrides the variable
+  @staticmethod
+  def onAcquire(xmlFeed, jokes, requirePictures, factFilters): #This 100 most recent bat facts and returns them as a list of tuples (title, pictureUrl)
+    XML_Dict = {"_":"http://www.w3.org/2005/Atom"}
+  
+    obj = xml.XML(xmlFeed)
+    #NOTE: the list saved is a list of tuples of the form [0] = jokeText, [1] = jokeUrl (can be None)
+    toSave = []
+    pictureStrings = ["http://i.imgur.com","https://i.reddituploads.com", "https://upload.wikimedia.org", "http://66.media.tumblr.com"]
+    for entry in obj.findall("_:entry", XML_Dict):
+      title = entry.find("_:title", XML_Dict).text
+      content = entry.find("_:content", XML_Dict).text
+      link = None
+      for string in pictureStrings:
+        if string in content:
+          #Find the link in the content, then split after it up to the next element
+          endPart = content.split(string, 1)[1].split('"',1)[0].replace("&amp;","&") #&amp because weird formatting
+          link = (string+endPart).replace(".gifv","") #Apparently imgur .gifv isn't supported, but just doing the imgur post is
+          
+      removeFact = False
+      #Once we have acquired both, run our filters on the title before saving
+      for func in factFilters:
+        title = func(title)
+        if not title:
+          removeFact = True #If returns empty string or false, just get rid of joke altogether
+          break
+          
+      if removeFact: continue #Break out of current iteration
+          
+      log.joke.low("----- NEW JOKE -----")
+      log.joke.low("Title:", title)
+      log.joke.low("Link: ", link)
+      #If we don't have a picture link, we may or may not want to add the message
+      if not requirePictures or link:
+        toSave.append( (title, link) ) #Append a tuple of info
+        
+    #Now save all facts
+    jokes.extend(toSave)
+    
+#A HybridFact takes a collection of other facts and randomly chooses from them
+#Inherits from BaseJoke for most things, and SimpleFact for postSubscription
+class HybridFact(BaseJoke):
+  def __init__(self, title):
+    super().__init__(title)
+    self._handlers = [] #This is the list of joke handlers registered with us
+    self._chosen = [] #List of joke handlers that have been used recently.
+    
+  #This simply adds the handler to our list for use
+  def addHandler(self, handler):
+    if handler not in self._handlers:
+      self._handlers.append(handler)
+      
+  def getJoke(self):
+    #This part is mostly copied from SimpleJoke
+    if len(self._handlers) > 0:
+      joke = None
+      tries = 0 #We will only try a few different handlers
+      while tries < (len(self._handlers) // 2 + 1): #Until we get a proper joke
+        tries += 1
+        #Pick a handler that hasn't been picked recently
+        choice = random.choice([i for i in range(len(self._handlers)) if i not in self._chosen])
+        joke = self._handlers[choice].getJoke()
+        if joke:
+          log.joke("Got a joke successfully from",self._handlers[choice])
+          self._chosen.append(choice) #Add the handler to blacklist if it yielded a joke
+          break
+        else:
+          log.joke.error("Joke get failed from", self._handlers[choice])
+      #If we have gone through at least 3/4 of the jokes, start removing jokes from the blacklist
+      if len(self._chosen) > (len(self._handlers) * 3 // 4):
+        self._chosen.pop(0) #Will only fire if at least one element in list. No Error.
+      return joke #Will return the joke regardless of us having one or not. Hopefully we got one
+        
+    #If we have no jokes, return the default one
+    return defaultDefaultJoke
+    
+  #Uses its parent to do this
+  def postSubscription(self, user, text):
+    return SimpleFact.postSubscription(self, user, text)
+      
+  
+
+### Include filters and name modules
+
+#PRE: title is the title to filter, prefix is "Fun Fact\\:" or similar
+def filterTitle(title, prefix):
+  title = re.sub(r"^"+prefix+r"\s*", "", title, flags = re.I)
+  title = re.sub(r"\(?x[- ]?post.+", "", title, flags = re.I)
+  return title
+  
+def makeFilter(prefix): #Make filter functions that take only a title
+  return lambda string: filterTitle(string, prefix)
+
+def ignoreMeta(title):
+  if re.search(r"\[meta\]", title, re.I):
+    return False
+  return title
+  
 
 ### Define objects for use ###
 joke          = StandardJoke()
@@ -386,18 +490,26 @@ batFacts      = RedditFact("Bat Fact", "batfacts", "Uhh.... Bats have wings! *mu
 turtleFacts   = RedditFact("Turtle Fact", "TurtleFacts", "There is not a single fact that the internet gave me about turtles")
 birdFacts     = RedditFact("Bird Fact", "BirdFacts", "Not many bird facts have pictures. Huh")
 awwFacts      = RedditFact("Aww Fact","awwducational", "Animals are adorable")
-funFacts      = RedditFact("Fun Fact","HeresAFunFact", "There are lots of fun facts in the world!")
 snekFacts     = RedditFact("Snek Pic", "sneks", "Sneks are cute. Also reddit is stupid", requirePictures = True)
 corgiFacts    = RedditFact("Corgi Pic", "corgi", "Corgis are strong, independent, and don't need no pictures to validate them", requirePictures = True)
 
+## This section will be for all the constituents of fun facts
+funFacts = HybridFact("Fun Fact")
+haffFacts = RedditFact("Fun Fact 1","HeresAFunFact", "There are lots of fun facts in the world!")
+haffFacts.addFactFilter(makeFilter(r"\[H?A?FF\]\:?"))
+funFacts.addHandler(haffFacts)
+darkFacts = RedditFact("Dark Fact","darkfacts")
+darkFacts.addFactFilter(makeFilter(r"Dark Fact\:"))
+funFacts.addHandler(darkFacts)
+funFunFacts = RedditFact("Fun Fact 2","funfacts")
+funFunFacts.addFactFilter(makeFilter(r"Fun Fact\:"))
+funFacts.addHandler(funFunFacts)
 
-### Include filters and name modules
-funFacts.addFactFilter(lambda string: re.sub("[H?A?FF]","", string, re.I).lstrip())
-
-def ignoreMeta(title):
-  if re.search("\[meta\]", title, re.I):
-    return False
-  return title
+def parseJSON(data, jokes):
+  jokes.extend([(re.sub(r"\s*\<[^>]*\>\s*", " ", item['fact_body'], flags = re.I),"") for item in json.loads(data)])
+  
+mentalFlossFacts = InternetFact("Fun Fact 3", parseJSON, "www.mentalfloss.com", "/api/1.0/views/amazing_facts.json", query = {"limit":100, "display_id":"xhr"})
+funFacts.addHandler(mentalFlossFacts)
 
 
 ### Add in text jokes ###

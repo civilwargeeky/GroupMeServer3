@@ -75,8 +75,8 @@ class Connection():
     handle.close()
     return data, code
   
-  def get(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("GET", url, query, headers, body, forceLog)
-  def post(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("POST", url, query, headers, body, forceLog)
+  def get(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("GET", url, query, headers, body, timeout, forceLog)
+  def post(self, url = "", query = {}, headers = {}, body = None, timeout = None, forceLog = True): return self.message("POST", url, query, headers, body, timeout, forceLog)
   
 def readIPFile():
   _ipFile = Files.getFileName("ip_address")

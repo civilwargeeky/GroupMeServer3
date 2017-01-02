@@ -637,8 +637,6 @@ class GetHandler(Handler):
       elif mode == "add": #We are adding a new name
         log.web.debug("Mode: Adding name",name)
         toSend+= "success" if user.addAlias(name) else "failure"
-       
-      group.save()
     
     self.writeText(toSend)
     self.sendResponse()
