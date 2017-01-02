@@ -54,12 +54,14 @@ class User():
   def addAlias(self, name):
     if name not in self.alias:
       self.alias.append(name)
+      self.save()
       return True
     return False
       
   def removeAlias(self, name):
     try:
       self.alias.pop(self.alias.index(name))
+      self.save()
       return True
     except IndexError:
       log.user("Could not remove alias",name,"for",self.getName()+". Name could not be found")
@@ -72,7 +74,11 @@ class User():
       self.realName = name
     else:
       self.GMName = name
+    self.save()
     return True #Because this is used other places
+    
+  def addRealName(self, name):
+    return self.addName(name, realName = True) #addName saves
      
   #Just checking for having this name
   def hasName(self, name):
@@ -97,7 +103,7 @@ class User():
       return False #Cannot remove groupMeName
     if name == self.realName:
       self.realName = None
-    self.removeAlias(name)
+    self.removeAlias(name) #Remove alias saves user
     return True
     
     
@@ -247,43 +253,6 @@ class UserList():
     Files.createFolder(self.dirName)
     
   ### User Manipulation ###
-  def addAlias(self, userObj, alias):
-    #If the alias is not None or empty string and the user exists and we don't already have the alias
-    if alias and userObj in self.userList and alias not in self.aliasList:
-      self.aliasList[alias] = userObj
-      
-  #This adds a new alias to the user, not an alias to our list of alii
-  def addNewAlias(self, userObj, alias):
-    userObj.addAlias(alias)
-    userObj.save()
-    
-    self.addAlias(userObj, alias)
-      
-  def addGMName(self, userObj, alias, realName = False):
-    userObj.addName(alias, realName)
-    userObj.save()
-    
-    self.addAlias(userObj, alias)
-    
-  #delete a user's alias if it matches the given alias
-  def removeAlias(self, userObj, alias):
-    log.user("Removing name '"+alias+"' for",userObj.getName())
-    if alias == userObj.realName or alias == userObj.GMName:
-      log.user("Cannot delete name because it is realname or GMName")
-      return False
-      
-    for name in self.aliasList.copy():
-      if name == alias:
-        del self.aliasList[name]
-        break
-        
-    val = userObj.removeAlias(alias)
-    userObj.save()
-    return val
-    
-   
-  def addRealName(self, userObj, alias):
-    return self.addGMName(userObj, alias, realName = True)
     
   #Expects local user data to be loaded already
   def loadAllUsers(self):
@@ -304,9 +273,6 @@ class UserList():
     if not userObj in self.userList:
       self.userList.append(userObj)
     self.IDDict[userObj.ID] = userObj
-    self.addAlias(userObj, userObj.GMName)
-    self.addAlias(userObj, userObj.realName)
-    userObj.save()
     return userObj
     
   def removeUser(self, userObj):
@@ -391,8 +357,6 @@ class UserList():
         user = self.addUser(userObj) #Create a new object and set it
         
     user.addName(userDict['nickname'])
-    user.save()
-    self.addAlias(user, userDict['nickname'])
     #If we have them registered, assume they exist in all dicts
       #... there aren't any dicts where information would change right now
     return user

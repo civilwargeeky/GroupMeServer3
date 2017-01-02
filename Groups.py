@@ -351,7 +351,7 @@ class Group():
         person = self.users.getUser(nameList[0]) #Get the user from the old name
         log.command.web("Got a name update for",person," --> ",nameList[1])
         if person:
-          self.users.addGMName(person, nameList[1])
+          person.addName(nameList[1])
         return #Don't need to check any other messages if it was this one
         
       #If we added a new user, or removed a user

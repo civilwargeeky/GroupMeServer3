@@ -420,9 +420,9 @@ class Command():
             return "I'm sorry, " + command.sender.getName() + ", but you are disallowed from setting any names"
         
         if command.specifier == "real" or not command.recipientObj.realName:
-          command.group.users.addRealName(command.recipientObj, command.details)
+          command.recipientObj.addRealName(command.details)
         else:
-          command.group.users.addNewAlias(command.recipientObj, command.details)
+          command.recipientObj.addAlias(command.details)
         return "Added new name for " + command.recipientObj.getName(True) + ": " + command.details
       elif command.verb == "delete":
         return "Removing name for " + command.recipientObj.getName() + "... "
@@ -433,7 +433,7 @@ class Command():
           except IndexError:
             return "Could not remove name #"+str(index)+" (you only have "+str(len(command.recipientObj.alias))+ " names)"
           else:
-            success = command.group.users.removeAlias(command.recipientObj, toRemove)
+            success = command.recipientObj.removeAlias(toRemove)
             if success:
               return "Successfully removed name '"+toRemove+"'"
             else:
@@ -442,7 +442,7 @@ class Command():
               else:
                 return "Could not remove name #"+str(toRemove) + ": " + toRemove + " (go yell at Daniel)"
         except ValueError:
-          success = command.group.users.removeAlias(command.recipientObj, command.details)
+          success = command.recipientObj.removeAlias(command.details)
           if success:
             return "Successfully removed name '"+command.details+"'"
           else:
@@ -479,12 +479,12 @@ class Command():
       return toRet
   
     if command.verb == "purge" and command.sender and command.sender.ID == "27094908": #Can only be accessed by me
-      return "And botsly looked at what he had wrought, and deemed it evil"
       for user in command.group.users.userList:
         user.realName = None #Remove this
         for alias in user.alias.copy():
-          command.group.users.removeAlias(user, alias)
+          user.removeAlias(alias)
       command.group.handler.write("PURGING ALL NAMES WITH HOLY FIRE", image = "http://i.groupme.com/1920x1080.png.8f8b5477e0c9438084b914eea59fb9f8.large")
+      return "And botsly looked at what he had wrought, and deemed it evil"
  
     elif command.verb == "get":
       toRet = ""
@@ -499,7 +499,7 @@ class Command():
       if command.recipientObj:
         count = 0
         for name in command.recipientObj.alias.copy():
-          count += int(command.group.users.removeAlias(command.recipientObj, name)) #Tries to remove all names, will fail for real and GM names
+          count += int(command.recipientObj.removeAlias(name)) #Tries to remove all names, will fail for real and GM names
         return "Removed " + str(count) + " names for " + command.recipientObj.getName()
         
     
