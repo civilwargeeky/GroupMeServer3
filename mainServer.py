@@ -265,7 +265,7 @@ def main():
     #Update things for the groups every day at 5 a.m.
     log.info("Starting daily triggers")
     updaterDaily      = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
-    updaterWebsite    = Events.PeriodicUpdater(time(4,58), timedelta(1), lambda _: Website.securityPurge()) #Just do this seperately
+    updaterWebsite    = Events.PeriodicUpdater(time(4,58), timedelta(1), Website.securityPurge) #Just do this seperately
     earlyMorningFacts = Events.PeriodicUpdater(time(3, 0), timedelta(1), postEarlyMorningFact)
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
