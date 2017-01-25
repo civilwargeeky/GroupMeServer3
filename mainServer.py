@@ -259,14 +259,19 @@ def main():
       if type(joke) == tuple:
         return Jokes.funFacts._postJoke(groupFam, ("Oh boy 3 A.M.!\n"+joke[0], joke[1]))
       return Jokes.funFacts._postJoke(groupFam, "Oh boy 3 A.M.!\n" + joke)
+      
+    def updateAllMsgLists():
+      for searcher in MsgSearch._searcherList: #We could also probably get from all active groups instead of the searcher list
+        searcher.GenerateCache()
     
     server = Server(('', Network.SERVER_CONNECTION_PORT), ServerHandler)
     
     #Update things for the groups every day at 5 a.m.
     log.info("Starting daily triggers")
-    updaterDaily      = Events.PeriodicUpdater(time(5, 0), timedelta(1), Groups.groupDailyDuties)
-    updaterWebsite    = Events.PeriodicUpdater(time(4,58), timedelta(1), Website.securityPurge) #Just do this seperately
-    earlyMorningFacts = Events.PeriodicUpdater(time(3, 0), timedelta(1), postEarlyMorningFact)
+    updaterDaily      = Events.DailyUpdater( time(5, 0), Groups.groupDailyDuties)
+    updaterWebsite    = Events.DailyUpdater( time(4,58), Website.securityPurge) #Just do this seperately
+    earlyMorningFacts = Events.DailyUpdater( time(3, 0), postEarlyMorningFact)
+    monthlyMsgRefresh = Events.WeeklyUpdater(time(5,10), Events.WEEKDAY.SATURDAY, updateAllMsgLists, weeksDiff = 4) #Once a month
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
     try:

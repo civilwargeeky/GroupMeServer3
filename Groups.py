@@ -506,6 +506,7 @@ class MainGroup(Group):
   Response:
   {"response":{"event":{"name":"2nd Test Event","description":"asdfasdfasdf","location":{"name":"Another location"},"start_at":"2016-07-12T17:00:00-05:00","end_at":"2016-07-12T17:15:00-05:00","is_all_day":false,"timezone":"America/Chicago","reminders":[900],"conversation_id":"14320017","event_id":"4c826c4b480e43a1bc87640ad513868c","creator_id":"27094908","going":["27094908"],"not_going":[],"created_at":"2016-07-12T21:58:59Z","updated_at":"2016-07-12T21:58:59Z"},"message":{"attachments":[{"event_id":"4c826c4b480e43a1bc87640ad513868c","type":"event","view":"full"}],"avatar_url":"https://i.groupme.com/960x768.png.c9510bef4adf485bad85f5626afcb8a5","created_at":1.468360739e+09,"favorited_by":[],"group_id":"14320017","id":"146836073914421230","name":"Dan K Maymays","sender_id":"27094908","sender_type":"user","source_guid":"5f85eb6623be4e2f85961a43a6e9fb2b","system":false,"text":"Dan K Maymays created event '2nd Test Event' https://s.groupme.com/7mukgLu","user_id":"27094908"}},"meta":{"code":201}}"""
 
+  #Note: message is a Commands.Message object (just a dict with some extra methods)
   def _handleMessage(self, message):
     
     self.checkForEndedEvents()
