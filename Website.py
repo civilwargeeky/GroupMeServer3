@@ -372,7 +372,10 @@ class PostHandler(Handler):
         log.web.debug("New admin admitted")
         self.writeText("Admin Access Granted!")
         self.sendResponse(headers = {"Set-Cookie":"administrator=true"+NEVER_EXPIRES})
-      elif password == Groups.getGroup(groupNum).getPassword():
+      elif not self.groupObj:
+        log.web.error("Password not associated with group! Group:", self.groupObj)
+        raise RuntimeError("No group associated with password page")
+      elif password == self.groupObj.getPassword():
         log.web.debug("User entered correct password for group",groupNum)
         id = securityRegister(self.userID, groupNum)
         #This is the next site to visit, and is stored as a header in "Location"

@@ -148,14 +148,12 @@ def main():
           writeLog("Successful Nice Completion")
           return 0; #//Like C
           
-        with open("mainLog.txt","a") as file:
-          file.write(getDateString())
-          file.write(": Exception!\r\n")
-          stringBuffer = io.StringIO()
-          traceback.print_exc(file = stringBuffer)
-          stringBuffer.seek(0) #Reset to start of message
-          file.write(stringBuffer.read())
-          stringBuffer.seek(0)
+        stringBuffer = io.StringIO()
+        traceback.print_exc(file = stringBuffer)
+        stringBuffer.seek(0) #Reset to start of message
+        errorString = stringBuffer.read()
+        writeLog("ERROR:\r\n", errorString)
+        
         timesFailed += 1
         writeLog("Exception #"+str(timesFailed))
         """EXPERIMENTAL PART"""
@@ -163,7 +161,7 @@ def main():
         writeLog("Writing error to GroupMe")
         import http.client, json
         handle = http.client.HTTPSConnection("api.groupme.com")
-        handle.request("POST","/v3/bots/post", body = json.dumps({"text":stringBuffer.read().replace("\n","\r\n"), "bot_id":"a2052a0c5f5337ee4087219100"}).encode("utf-8"))
+        handle.request("POST","/v3/bots/post", body = json.dumps({"text":errorString.replace("\n","\r\n"), "bot_id":"40367055a485e54713e34d0248"}).encode("utf-8"))
         response = handle.getresponse()
         writeLog("Code:   ", response.getcode())
         writeLog("Body:   ", response.read().decode("utf-8"))

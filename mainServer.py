@@ -271,7 +271,7 @@ def main():
     updaterDaily      = Events.DailyUpdater( time(5, 0), Groups.groupDailyDuties)
     updaterWebsite    = Events.DailyUpdater( time(4,58), Website.securityPurge) #Just do this seperately
     earlyMorningFacts = Events.DailyUpdater( time(3, 0), postEarlyMorningFact)
-    monthlyMsgRefresh = Events.WeeklyUpdater(time(5,10), Events.WEEKDAY.SATURDAY, updateAllMsgLists, weeksDiff = 4) #Once a month
+    monthlyMsgRefresh = Events.WeeklyUpdater(time(5,10), Events.WEEKDAY.SATURDAY, updateAllMsgLists, unitDifference = 4) #Once a month
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
     try:

@@ -96,18 +96,18 @@ class PeriodicUpdater():
   #A peridodic updater takes a firstTime (a datetime representing the first time
   #  after now this event should fire) and a timedelta (say, 1 week or 1 day)
   #Every update, the object will set a timer to occur timedelta after the firstTime
-  def __init__(self, firstTime, timedelta, function, argsList = [], argsDict = {}):
+  def __init__(self, firstTime, timedelta_, function, argsList = [], argsDict = {}):
     if type(firstTime) != datetime:
       raise TypeError("firstTime must be a datetime object, got " + str(type(firstTime)))
     if firstTime < datetime.now():
       raise ValueError("firstTime object is in the past! " + repr(firstTime))
-    if type(timedelta) != timedelta:
+    if type(timedelta_) != timedelta:
       raise TypeError("timedelta must be a timedelta object, got " + str(type(timedelta)))
-    if timedelta.days <= 0:
+    if timedelta_.days <= 0:
       raise ValueError("timedelta must be at least one day")
       
     self.firstTime = firstTime
-    self.timedelta = timedelta
+    self.timedelta = timedelta_
     self.function  = function
     self.arg       = argsList
     self.kwarg     = argsDict
@@ -133,9 +133,9 @@ class PeriodicUpdater():
       self.nextTrigger = self.nextTrigger + self.timedelta
     if self.nextTrigger < datetime.now(): #If the trigger is in the past
       raise ValueError("Next PeriodicUpdater is in the past! \nDelta: "+repr(self.timedelta)+" nextTrigger: " + repr(self.nextTrigger))
-    log.event("Setting new trigger for", str(nextTrigger))
+    log.event("Setting new trigger for", str(self.nextTrigger))
     #Express the difference in time between the next trigger and now as an integer for the timer to wait
-    difference = int((nextTrigger - datetime.now()).total_seconds())+1 #+1 because it rounds down to 23 hours 59 mins, 59 seconds
+    difference = int((self.nextTrigger - datetime.now()).total_seconds())+1 #+1 because it rounds down to 23 hours 59 mins, 59 seconds
     log.event.debug("Trigger will fire in",str(timedelta(seconds = difference)))
     
     #First stop tracking this one
@@ -160,33 +160,35 @@ class PeriodicUpdater():
       
       
       
-  ### Implementations of PeriodicUpdater ###
-  class DailyUpdater(PeriodicUpdater):
-    def __init__(self, dayTime, function, args = [], kwargs = {}, daysDiff = 1):
-      if type(daysDiff) != int: raise TypeError("daysDiff must be int")
-      if type(dayTime) != time: raise TypeError("dayTime must be time object")
-      
-      firstTime = datetime.combine(date.today(), dayTime)
-      if firstTime < time.now(): #If time is in the past
-        firstTime += timedelta(days = 1)
-      super().__init__(firstTime, timedelta(days = daysDiff), function, args, kwargs)
-        
-  
-  WEEKDAY = ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"]
-  for i in range(len(WEEKDAY)):
-    setattr(WEEKDAY,WEEKDAY[i],i) #So we can do "WEEKDAY.MONDAY" and things
+### Implementations of PeriodicUpdater ###
+class DailyUpdater(PeriodicUpdater):
+  def __init__(self, dayTime, function, args = [], kwargs = {}, unitDifference = 1):
+    if type(unitDifference) != int: raise TypeError("unitDifference must be int")
+    if type(dayTime) != time: raise TypeError("dayTime must be time object")
     
-  #NOTE: Please use the WEEKDAY enum for day of week
-  class WeeklyUpdater(PeriodicUpdater):
-    def __init__(self, dayTime, dayOfWeek, function, args = [], kwargs = {}, weeksDiff = 1)
-      if type(daysDiff) != int: raise TypeError("weeksDiff must be int")
-      if type(dayOfWeek) != int or dayOfWeek not in range(7): raise TypeError("dayOfWeek must be int 0 through 6")
-      if type(dayTime) != time: raise TypeError("dayTime must be time object")
+    firstTime = datetime.combine(date.today(), dayTime)
+    if firstTime < datetime.now(): #If time is in the past
+      firstTime += timedelta(days = 1)
+    super().__init__(firstTime, timedelta(days = unitDifference), function, args, kwargs)
       
-      firstTime = datetime.combine(date.today(), dayTime) #Get today's day of the week and find the next day that matches the one we want
-      timeDay = firstTime.weekday()
-      firstTime += timedelta(days = (dayOfWeek-timeDay if dayOfWeek >= timeDay else 7-(dayOfWeek-timeDay)))
-      if firstTime < datetime.now():
-        firstTime += timedelta(weeks = 1)
-      
-      super.__init__(firstTime, timedelta(weeks = weeksDiff), function, agrs, kwargs)
+
+class NOT_A_LIST(list): pass #This is stupid, but I can't assign attributes to lists
+WEEKDAY = NOT_A_LIST()
+WEEKDAY.extend(["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"])
+for i in range(len(WEEKDAY)):
+  setattr(WEEKDAY,WEEKDAY[i],i) #So we can do "WEEKDAY.MONDAY" and things
+
+#NOTE: Please use the WEEKDAY enum for day of week
+class WeeklyUpdater(PeriodicUpdater):
+  def __init__(self, dayTime, dayOfWeek, function, args = [], kwargs = {}, unitDifference = 1):
+    if type(unitDifference) != int: raise TypeError("unitDifference must be int")
+    if type(dayOfWeek) != int or dayOfWeek not in range(7): raise TypeError("dayOfWeek must be int 0 through 6")
+    if type(dayTime) != time: raise TypeError("dayTime must be time object")
+    
+    firstTime = datetime.combine(date.today(), dayTime) #Get today's day of the week and find the next day that matches the one we want
+    timeDay = firstTime.weekday()
+    firstTime += timedelta(days = (dayOfWeek-timeDay if dayOfWeek >= timeDay else 7-(dayOfWeek-timeDay)))
+    if firstTime < datetime.now():
+      firstTime += timedelta(weeks = 1)
+    
+    super().__init__(firstTime, timedelta(weeks = unitDifference), function, args, kwargs)

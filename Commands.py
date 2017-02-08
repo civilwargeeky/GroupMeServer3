@@ -2,6 +2,7 @@
 #A command should be passed an unadultered message and return a "Command" object that has nice functions to act on message data
 
 import re
+import random
 
 import Events
 import Groups #For type comparison
@@ -164,7 +165,7 @@ class Command():
       
     self.commands = {name: None for name in [\
                      "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart", \
-                     "id"]}
+                     "id", "baddresses"]}
     #Example: {"residence":"address"}
     self.commands.update({"website":"help", "jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
                           "called":"name", "love":"human affection"})
@@ -235,7 +236,7 @@ class Command():
       senderName = "internet person"
       if self.sender:
         senderName = self.sender.getName(preferGroupMe = True)
-      return "I'm sorry, " + senderName + " but I'm afraid I can't '"+filterWords(self.message, "me", "you")+"'"
+      return "I'm sorry, " + senderName + " but I'm afraid I can't '"+self.message.replace("me", "you").replace("your","my")+"'"
       #return "I'm sorry, " + senderName + " but I'm afraid I can't do that"
   
   def do_version(self):
@@ -304,7 +305,8 @@ class Command():
         
   def handle_addresses(command):
     toRet = ""
-    for user in command.group.users.getUsersSorted(lambda user: user.getName()):
+    users = command.group.users.getUsersSorted(lambda user: user.getName())
+    for user in users:
       baseAddress = user.getAddress()
       if baseAddress:
         toRet += "Addresses for " + user.getName() + ":\n"
@@ -314,6 +316,26 @@ class Command():
           if subAddress:
             toRet += "--" + modifier.title() + ": " + subAddress + "\n"
     return toRet
+    
+  def do_baddresses(self):
+    return self.do_addresses()
+    
+  def handle_baddresses(command): #Copied from handle_addresses
+    names = []
+    add = []
+    users = command.group.users.getUsersSorted(lambda user: user.getName())
+    for user in users:
+      baseAddress = user.getAddress()
+      if baseAddress:
+        names.append("Addresses for " + user.getName() + ":\n")
+        add.append("--" + baseAddress + "\n")
+        for modifier in Events.ADDRESS_MODIFIERS: #Goes through all possible address types
+          subAddress = user.getAddress(modifier)
+          if subAddress:
+            add[-1] += "--" + modifier.title() + ": " + subAddress + "\n"
+    random.shuffle(names)
+    random.shuffle(add)
+    return "".join([(names[i] + add[i]) for i in range(len(names))])
     
   def do_id(self):
     self.setRecipient(self.wholeString.replace("'s",""))
