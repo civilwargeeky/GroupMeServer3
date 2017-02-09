@@ -235,7 +235,7 @@ class Command():
     else:
       senderName = "internet person"
       if self.sender:
-        senderName = self.sender.getName(preferGroupMe = True)
+        senderName = self.sender.getGMName()
       return "I'm sorry, " + senderName + " but I'm afraid I can't '"+self.message.replace("me", "you").replace("your","my")+"'"
       #return "I'm sorry, " + senderName + " but I'm afraid I can't do that"
   
@@ -321,6 +321,9 @@ class Command():
     return self.do_addresses()
     
   def handle_baddresses(command): #Copied from handle_addresses
+    #Note: This only works while Jacob's name is "Dingus Eck"
+    log.debug("Recipient obj:", command.recipientObj)
+    JACOB_CONSTANT = (any(name in command.recipientObj.getGMName().lower() for name in ['eck','dan'])) if command.recipientObj else False
     names = []
     add = []
     users = command.group.users.getUsersSorted(lambda user: user.getName())
@@ -335,6 +338,9 @@ class Command():
             add[-1] += "--" + modifier.title() + ": " + subAddress + "\n"
     random.shuffle(names)
     random.shuffle(add)
+    if JACOB_CONSTANT:
+      log.command.info("JACOB_CONSTANT ACTIVE")
+      add = [''.join(random.sample(i, len(i))) for i in add]
     return "".join([(names[i] + add[i]) for i in range(len(names))])
     
   def do_id(self):
@@ -493,7 +499,7 @@ class Command():
     #META FUNCTION DEFINITION (used in two places below)
     def addAllNames(user):
       toRet = ""
-      toRet += user.getName(preferGroupMe = True) + "\n"
+      toRet += user.getGMName() + "\n"
       i = 1
       for name in sorted(user.alias, key = str.lower):
         toRet += str(i)+": " + user.specifyName(name) + "\n"
@@ -512,7 +518,7 @@ class Command():
       toRet = ""
       if command.specifier == "all": #If we want ALL names
         toRet += u"Printing out all names for everyone. \U0001f389 yay \U0001f389\n"
-        for user in sorted(command.group.users.userList, key = lambda a: a.getName(preferGroupMe = True).lower()): #This part is copied from below. May want to refactor
+        for user in sorted(command.group.users.userList, key = lambda a: a.getGMName().lower()): #This part is copied from below. May want to refactor
           toRet += addAllNames(user)
       elif command.recipientObj:
         toRet += addAllNames(command.recipientObj)

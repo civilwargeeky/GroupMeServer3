@@ -602,7 +602,7 @@ class GetHandler(Handler):
     if mode == "get":
       log.web.debug("Mode: Get")
       toSend+= "Note: <b>R</b> is for 'Real Name' and <b>D</b> is for 'Delete Name'<br>The box at the top is for adding new names<br><br>"
-      toSend+= "Data for user: <b>{}</b>\n".format(user.getName(preferGroupMe = True))
+      toSend+= "Data for user: <b>{}</b>\n".format(user.getGMName())
       toSend+= dedent("""\
         <table border=1>
           <tr>

@@ -94,6 +94,9 @@ class User():
         return value
     return "User " + (self.ID or "Undefined")
     
+  def getGMName(self):
+    return self.getName(preferGroupMe = True)
+    
   #Removes the given name, resetting realName if necessary
   #PRE: name is a string
   #POST: if name does not exist, IndexError. otherwise returns True if name removed, False if
