@@ -170,11 +170,8 @@ class Command():
     self.commands.update({"website":"help", "jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
                           "called":"name", "love":"human affection"})
     
-    self.group = group
-    self.message = commandString
-    self.bot = botString
-    self.sender = sender
-    
+    #May or may not be set
+    self.sender = None
     #Things to be set by a command function
     self.verb         = None #The verb is kind of like a specifier but references what the action should be doing (setting, getting, etc.)
     self.recipient    = None #This is a string denoting the recipient of the action
@@ -186,6 +183,14 @@ class Command():
     self.leftString   = None
     self.rightString  = None
     self.wholeString  = None #Left + " " + Right
+    
+    #Always have these
+    self.group = group
+    self.message = commandString
+    self.bot = botString
+    self.senderObj = sender
+    if sender:
+      self.sender = sender.getGMName()
     
     log.command.low("Command String:",self.message)
     for command in self.commands:
@@ -214,12 +219,12 @@ class Command():
   def setRecipient(self, fromString):
     if findMe(fromString):
       self.recipient = "me"
-      self.recipientObj = self.sender
+      self.recipientObj = self.senderObj
       return
       
     self.recipient = fromString.strip()
-    self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.sender #So it defaults to the sender if you do like "address" it should return your address
-    if not self.recipientObj: self.recipientObj = self.sender #It will also default to sender if we can't find any user (POTENTIALLY BAD)
+    self.recipientObj = self.group.users.getUser(fromString.lstrip("@")) if self.recipient else self.senderObj #So it defaults to the senderObj if you do like "address" it should return your address
+    if not self.recipientObj: self.recipientObj = self.senderObj #It will also default to senderObj if we can't find any user (POTENTIALLY BAD)
     
   def handle(self):
     if self.command:
@@ -234,8 +239,8 @@ class Command():
       return method() #Return the string it returns
     else:
       senderName = "internet person"
-      if self.sender:
-        senderName = self.sender.getGMName()
+      if self.senderObj:
+        senderName = self.senderObj.getGMName()
       return "I'm sorry, " + senderName + " but I'm afraid I can't '"+self.message.replace("me", "you").replace("your","my")+"'"
       #return "I'm sorry, " + senderName + " but I'm afraid I can't do that"
   
@@ -322,8 +327,12 @@ class Command():
     
   def handle_baddresses(command): #Copied from handle_addresses
     #Note: This only works while Jacob's name is "Dingus Eck"
-    log.debug("Recipient obj:", command.recipientObj)
-    JACOB_CONSTANT = (any(name in command.recipientObj.getGMName().lower() for name in ['eck','dan'])) if command.recipientObj else False
+    log.debug("Sender obj:", command.senderObj)
+    JACOB_CONSTANT = (any(name in command.senderObj.getGMName().lower() for name in ['eck','dan'])) if command.senderObj else False
+    log.debug("JACOB: ", JACOB_CONSTANT)
+    log.debug("Name checking:", command.senderObj.getGMName().lower())
+    for i in  ['eck','dan']:
+      log.debug("Checking",i,":",i in  command.senderObj.getGMName().lower())
     names = []
     add = []
     users = command.group.users.getUsersSorted(lambda user: user.getName())
@@ -339,8 +348,8 @@ class Command():
     random.shuffle(names)
     random.shuffle(add)
     if JACOB_CONSTANT:
-      log.command.info("JACOB_CONSTANT ACTIVE")
-      add = [''.join(random.sample(i, len(i))) for i in add]
+      log.command("JACOB_CONSTANT ACTIVE")
+      add = [(''.join(random.sample(i[:-1], len(i)-1)))+"\n" for i in add]
     return "".join([(names[i] + add[i]) for i in range(len(names))])
     
   def do_id(self):
@@ -443,9 +452,9 @@ class Command():
   def handle_name(command):
     if command.recipientObj:
       if command.verb == "set":
-        if command.sender: #I am a spiteful webmaster
-          if command.sender.ID in ["15748240"]:
-            return "I'm sorry, " + command.sender.getName() + ", but you are disallowed from setting any names"
+        if command.senderObj: #I am a spiteful webmaster
+          if command.senderObj.ID in ["15748240"]:
+            return "I'm sorry, " + command.senderObj.getName() + ", but you are disallowed from setting any names"
         
         if command.specifier == "real" or not command.recipientObj.realName:
           command.recipientObj.addRealName(command.details)
@@ -506,7 +515,7 @@ class Command():
         i += 1
       return toRet
   
-    if command.verb == "purge" and command.sender and command.sender.ID == "27094908": #Can only be accessed by me
+    if command.verb == "purge" and command.senderObj and command.senderObj.ID == "27094908": #Can only be accessed by me
       for user in command.group.users.userList:
         user.realName = None #Remove this
         for alias in user.alias.copy():
@@ -536,7 +545,7 @@ class Command():
     self.recipientObj = self.group.users.getUser(self.wholeString)
     
   def handle_human_affection(command):
-    toSend = command.sender
+    toSend = command.senderObj
     if command.recipientObj:
       toSend = command.recipientObj
     if toSend:

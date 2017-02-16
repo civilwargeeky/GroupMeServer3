@@ -96,7 +96,7 @@ class PeriodicUpdater():
   #A peridodic updater takes a firstTime (a datetime representing the first time
   #  after now this event should fire) and a timedelta (say, 1 week or 1 day)
   #Every update, the object will set a timer to occur timedelta after the firstTime
-  def __init__(self, firstTime, timedelta_, function, argsList = [], argsDict = {}):
+  def __init__(self, firstTime, timedelta_, function, argsList = [], argsDict = {}, label = ""):
     if type(firstTime) != datetime:
       raise TypeError("firstTime must be a datetime object, got " + str(type(firstTime)))
     if firstTime < datetime.now():
@@ -111,9 +111,13 @@ class PeriodicUpdater():
     self.function  = function
     self.arg       = argsList
     self.kwarg     = argsDict
+    self.label     = label
     
     self.timerObj = None
     self.resetTimer(initial = True) #Starts the given function
+    
+  def __repr__(self):
+    return "<{} object. label: {}>".format(self.__class__.__name__, repr(self.label or None))
     
   #Cancels the timer (if it exists)
   def cancel(self):
@@ -162,14 +166,14 @@ class PeriodicUpdater():
       
 ### Implementations of PeriodicUpdater ###
 class DailyUpdater(PeriodicUpdater):
-  def __init__(self, dayTime, function, args = [], kwargs = {}, unitDifference = 1):
+  def __init__(self, dayTime, function, args = [], kwargs = {}, label = "", unitDifference = 1):
     if type(unitDifference) != int: raise TypeError("unitDifference must be int")
     if type(dayTime) != time: raise TypeError("dayTime must be time object")
     
     firstTime = datetime.combine(date.today(), dayTime)
     if firstTime < datetime.now(): #If time is in the past
       firstTime += timedelta(days = 1)
-    super().__init__(firstTime, timedelta(days = unitDifference), function, args, kwargs)
+    super().__init__(firstTime, timedelta(days = unitDifference), function, args, kwargs, label)
       
 
 class NOT_A_LIST(list): pass #This is stupid, but I can't assign attributes to lists
@@ -180,7 +184,7 @@ for i in range(len(WEEKDAY)):
 
 #NOTE: Please use the WEEKDAY enum for day of week
 class WeeklyUpdater(PeriodicUpdater):
-  def __init__(self, dayTime, dayOfWeek, function, args = [], kwargs = {}, unitDifference = 1):
+  def __init__(self, dayTime, dayOfWeek, function, args = [], kwargs = {}, label = "", unitDifference = 1):
     if type(unitDifference) != int: raise TypeError("unitDifference must be int")
     if type(dayOfWeek) != int or dayOfWeek not in range(7): raise TypeError("dayOfWeek must be int 0 through 6")
     if type(dayTime) != time: raise TypeError("dayTime must be time object")
@@ -191,4 +195,4 @@ class WeeklyUpdater(PeriodicUpdater):
     if firstTime < datetime.now():
       firstTime += timedelta(weeks = 1)
     
-    super().__init__(firstTime, timedelta(weeks = unitDifference), function, args, kwargs)
+    super().__init__(firstTime, timedelta(weeks = unitDifference), function, args, kwargs, label)

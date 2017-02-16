@@ -444,11 +444,14 @@ class GetHandler(Handler):
         #This will be copied and modified by every search result
         mainMessage = """<tr class="SearchContainer {subclass}" id="{resultNum}{position}">
           <td class="SearchLeft"><div style="text-align:center;padding=0px;margin=px">{userName}</div>{groupName}<br>{date}</td>
-          <td class="SearchPicture"><img class = "SearchPicture" src="{avatar}"></td>
+          <td class="SearchPicture"><a href="searchResults.html?query={text}&strict=true"><img class = "SearchPicture" src="{avatar}"></a></td>
           <td class="SearchRight"><div class="SearchResults">
             {text}
+            {image}
             </div></td>
         </tr>\n"""
+        
+        pictureText = """<br><img width=75% style="padding-top:10px" src="{}">"""
 
         #Send top part of html
         self.writeText(toSend.split(self.STR_CONTENT)[0].replace(self.STR_TITLE, "Search Results"))
@@ -466,7 +469,7 @@ class GetHandler(Handler):
           #Iterates through all words of prompt if permissive, otherwise through a tuple containing only the query
           for word in (re.split("\W+", query) if permissiveSearch else (query,)):
             #Searches for the word(s) in each message (text can be None)
-            if message.text and re.search(word, message.text, re.IGNORECASE):
+            if message.text and re.search(re.escape(word), message.text, re.IGNORECASE):
               #And the message and surrounding ones
               #This directly sends each search result as its generated
               lowerBound = max(i-numAround, 0)
@@ -496,10 +499,12 @@ class GetHandler(Handler):
                   #Add date message was sent
                   date = datetime.date.fromtimestamp(int(message["created_at"])).strftime("%m/%d/%y"), \
                   #The user's avatar url (if none it will put the icon of it)
-                  avatar = (message["avatar_url"] or self.PAGE_ICON), \
+                  avatar = (message['avatar_url'] or self.PAGE_ICON), \
                   #The actual message text
-                  text = (message["text"] or "").replace("\n","<br>"))\
-                  )
+                  text = (message['text'] or "").replace("\n","<br>"), \
+                  #The optional image (if there is one)
+                  image = (pictureText.format(message['attachments'][0]['url']) if (len(message['attachments']) > 0 and message['attachments'][0]['type'] == "image") else "") \
+                  ))
                 index += 1 #Increment index
               
               numFound += 1 #Add that we have found another matched
