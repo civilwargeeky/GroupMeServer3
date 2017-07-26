@@ -164,7 +164,7 @@ class Command():
       raise TypeError(type(self).__name__ + " object expected a Groups.Group object, got " + str(type(group)))
       
     self.commands = {name: None for name in [\
-                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "group password", "shutdown", "restart", \
+                     "version", "help", "address", "addresses", "joke", "name", "names", "human affection", "happy birthday", "group password", "shutdown", "restart", \
                      "id", "baddresses"]}
     #Example: {"residence":"address"}
     self.commands.update({"website":"help", "jokes":"joke", r"facts?":"joke", r"pics?":"joke", "pictures?":"joke",
@@ -552,6 +552,19 @@ class Command():
       return "Love you " + toSend.getName() + u" \u2764"
     else:
       return u"Love you \u2764"
+      
+  def do_happy_birthday(self):
+    log.command("Wishing a happy birthday!")
+    self.recipientObj = self.group.users.getUser(self.wholeString)
+    
+  def handle_happy_birthday(command): #Just copied from human affection
+    toSend = command.senderObj
+    if command.recipientObj:
+      toSend = command.recipientObj
+    if toSend:
+      return "Happy Birthday " + toSend.getName() + u"!!! \U0001f382"
+    else:
+      return u"Happy Birthday!!! \U0001f382"
       
   def do_group_password(self): 
     if findWord(["whats?","get"], self.wholeString):
