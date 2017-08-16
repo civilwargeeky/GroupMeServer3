@@ -23,6 +23,16 @@ class User():
       userType = file.readline().rstrip() #First line will be type of user
       log.save.low("Loading ",userType,"from",fileName)
       return globals()[userType](groupReference).load(file) #Load arbitrary class
+      
+  #Just makes another user with the names of the other one
+  @classmethod
+  def copy(cls, group, user):
+    toRet = cls(group, user.ID)
+    toRet.realName = user.realName
+    toRet.GMName = user.GMName
+    toRet.token = user.token
+    toRet.alias = toRet.alias.copy()
+    return toRet
 
   _keyAddrDefault = "_main"
 

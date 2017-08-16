@@ -786,6 +786,111 @@ class EventGroup(SubGroup):
     groupDeregister(self, [self.parent.eventGroups])
     self.parent.save()
     
+#This group will be linked with a CollectiveGroup.
+#All members in this will be added to the CollectiveGroup, and removed when they leave this one
+class CollectorGroup(Group):
+  def __init__(self, ID = None, groupID = None, collectiveGroup = None):
+    # if not isinstance(collectiveGroup, CollectiveGroup):
+      # raise TypeError("collectiveGroup must be a CollectiveGroup object, not " + str(type(collectiveGroup)))
+      
+    super().__init__(ID, groupID)
+    self.collectiveGroup = collectiveGroup
+    
+  def init(self):
+    if type(self.collectiveGroup) is int:
+      parent = groupDict[self.collectiveGroup]
+      if not isinstance(parent, CollectiveGroup):
+        raise TypeError("collectiveGroup must be a CollectiveGroup object, not " + str(type(parent)))
+      self.collectiveGroup = parent #Forms the actual in-memory conncetion to the parent group
+    log.group("Group", self.ID," has collectiveGroup", self.collectiveGroup)
+    
+    super().init()
+    
+  def postInit(self):
+    self.canChangeUsers(super().postInit)
+  
+  def _handleMessage(self, message):
+    self.canChangeUsers(super()._handleMessage, message)
+    
+  #Given a function that can change the users in a group, call it and calculate changed users
+  #All other args are passed to function
+  def canChangeUsers(self, function, *arg, **kwarg):
+    before = self.users.userList.copy()
+    
+    function(*arg, **kwarg)
+    
+    after = self.users.userList.copy()
+    
+    #Pass the users to add if they didn't exist before
+    toAdd = [user for user in after if user not in before]
+    #Pass the users to remove if they don't exist any more
+    toRemove = [user for user in before if user not in after] 
+    log.group.debug("CollectorGroup Users may have changed")
+    log.group.debug("Adding:  ",toAdd)
+    log.group.debug("Removing:",toRemove)
+    #Now update our collectiveGroup
+    self.collectiveGroup.addUsers(self.groupID, toAdd)
+    self.collectiveGroup.removeUsers(self.groupID, toRemove)
+    
+  def _save(self, handle):
+    super()._save(handle)
+    Files.write(handle, str(self.collectiveGroup.ID))
+    
+  def load(self, fileHandle):
+    super().load(fileHandle)
+    self.collectiveGroup = int(Files.read(fileHandle))
+    log.save("Group ID set on subgroup load:", self.collectiveGroup)
+    
+    
+#This group is given members to add by a CollectorGroup
+class CollectiveGroup(Group):
+  def __init__(self, ID = None, groupID = None):
+    super().__init__(ID, groupID)
+    
+    self.collectiveUsers = {} #Mapping of user id => list of groups added from
+    
+  def addUsers(self, groupID, users):
+    if not users: return #If users is empty, don't do anything
+    
+    log.group.debug("In addUsers, got", users)
+    for user in users:
+      #If they are already in the group, don't add them again
+      if user.ID in self.collectiveUsers and groupID in self.collectiveUsers[user.ID]:
+        log.group.debug(user,"is already in CollectiveGroup")
+        users.pop(users.index(user))
+        continue
+      if not user.ID in self.collectiveUsers:
+        self.collectiveUsers[user.ID] = set() #New set
+      self.collectiveUsers[user.ID].add(groupID) #Add this group to the list they've been added from
+    #Then add them on the web
+    self.handler.addUsers([Users.User.copy(self, user) for user in users])
+    #And update based on that
+    self.loadUsersFromWeb() #Now update based on what we just added
+    self.save()
+  
+  def removeUsers(self, groupID, users):
+    if not users: return #If users is empty, don't do anything
+    
+    log.group.debug("In removeUsers, got", users)
+    for user in users:
+      userGroups = self.collectiveUsers.get(user.ID)
+      if userGroups and groupID in userGroups: #Only continue if user has any groups and if we have record of this group
+        userGroups.remove(groupID)
+        if not len(userGroups):
+          del self.collectiveUsers[user.ID] #Remove the set
+          self.handler.removeUser(user)
+    self.loadUsersFromWeb() #Then update based on changes
+    self.save()
+    
+  def _save(self, handle):
+    super()._save(handle)
+    json.dump({key:list(self.collectiveUsers[key]) for key in self.collectiveUsers}, handle)
+    
+  def load(self, handle):
+    super().load(handle)
+    loaded = json.loads(handle.read())
+    self.collectiveUsers = {key: set(loaded[key]) for key in loaded}
+    
 ### Functions that get called periodically ###
 def groupDailyDuties():
   log.group("Starting daily duties!")
@@ -797,3 +902,4 @@ def groupDailyDuties():
     for group in getGroupList():
       if group.bot:
         group.handler.updateBots(group.bot)
+        

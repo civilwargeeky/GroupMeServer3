@@ -124,6 +124,8 @@ class Searcher():
       response = self.group.handler.get("/".join(("groups",self.group.groupID,"messages")), query = {"limit":100, "before_id":nextSearch})
       if response.code == 200:
         messageStack = response['messages']
+        if len(messageStack) == 0:
+          break
         nextSearch = messageStack[-1]['id']
         endCount = response['count']
         if startCount == None: startCount = endCount #Only update if we haven't done any messages yet

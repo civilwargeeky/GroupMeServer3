@@ -179,6 +179,22 @@ def makeNamedGroup(id, groupID, idTuple, initialPassword = None):
     toRet.setPassword(initialPassword)
   return toRet
   
+def makeCollective(id, groupID, put):
+  toRet = Groups.getGroup(id)
+  if not toRet:
+    toRet = Groups.CollectiveGroup(id, groupID)
+    user = toRet.users.addUser(Users.User(toRet, put[0])).setToken(put[1])
+    user.save()
+  return toRet
+
+def makeCollector(id, groupID, put, groupCollective):
+  toRet = Groups.getGroup(id)
+  if not toRet:
+    toRet = Groups.CollectorGroup(id, groupID, groupCollective)
+    user = toRet.users.addUser(Users.User(toRet, put[0])).setToken(put[1])
+    user.save()
+  return toRet
+  
 def purgeGroups():
   for name in list(Groups.groupDict.keys()):
     Groups.groupDict[name].deleteSelf()
@@ -233,7 +249,16 @@ def main():
   toriGroup = makeNamedGroup(15, "23317842", put, "DLARulez")
   
   groupFam  = makeNamedGroup(2, "13972393", put, "easier")
-  groupFam.setBot("cfe41d49a83d73874f4aa547b9")
+    
+  rocketMainGroup = makeCollective(20, "33057510", put)
+  
+  electronicsGroup = makeCollector(21, "33057523", put, rocketMainGroup)
+  
+  designAndMGroup = makeCollector(22, "33058451", put, rocketMainGroup)
+  
+  propulsionGroup = makeCollector(23, "33058488", put, rocketMainGroup)
+  
+  
 
   try: #This is so we can have our finally block remove any extra threads in case of error
     
