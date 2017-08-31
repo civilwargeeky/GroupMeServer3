@@ -355,7 +355,7 @@ class Group():
         return #Don't need to check any other messages if it was this one
         
       #If we added a new user, or removed a user
-      if ("to the group" in message.text and "added" in message.text) or ("from the group" in message.text and "removed" in message.text):
+      if ("to the group" in message.text and "added" in message.text) or ("joined the group" in message.text) or ("from the group" in message.text and "removed" in message.text):
         self.loadUsersFromWeb()
         
     
