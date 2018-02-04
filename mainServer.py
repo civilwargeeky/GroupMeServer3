@@ -166,9 +166,9 @@ class ServerHandler(socketserver.ThreadingMixIn, http.server.BaseHTTPRequestHand
     pass
     
 #Expects a tuple of (userID, token)
-def makeNamedGroup(id, groupID, idTuple, initialPassword = None):
+def makeNamedGroup(id, groupID, idTuple, initialPassword = None, classType = Groups.MainGroup):
   if not Groups.getGroup(id):
-    toRet = Groups.MainGroup(id, groupID)
+    toRet = classType(id, groupID)
     user = toRet.users.addUser(Users.User(toRet, idTuple[0])).setToken(idTuple[1])
     user.save()
   else:
@@ -179,10 +179,10 @@ def makeNamedGroup(id, groupID, idTuple, initialPassword = None):
     toRet.setPassword(initialPassword)
   return toRet
   
-def makeCollective(id, groupID, put):
+def makeCollective(id, groupID, put, classType = Groups.CollectiveGroup):
   toRet = Groups.getGroup(id)
   if not toRet:
-    toRet = Groups.CollectiveGroup(id, groupID)
+    toRet = classType(id, groupID)
     user = toRet.users.addUser(Users.User(toRet, put[0])).setToken(put[1])
     user.save()
   return toRet
@@ -249,6 +249,8 @@ def main():
   toriGroup = makeNamedGroup(15, "23317842", put, "DLARulez")
   
   groupFam  = makeNamedGroup(2, "13972393", put, "easier")
+  
+  groupOldRocket  = makeNamedGroup(10, "26730422", put, "password")
     
   rocketMainGroup = makeCollective(20, "33057510", put)
   
@@ -257,6 +259,8 @@ def main():
   designAndMGroup = makeCollector(22, "33058451", put, rocketMainGroup)
   
   propulsionGroup = makeCollector(23, "33058488", put, rocketMainGroup)
+  
+  civGroup = makeCollective(30, "36614847", put, classType = Groups.Group) #Just a collective because I'm lazy in properly naming things. Is a normal group
   
   
 
@@ -288,6 +292,9 @@ def main():
     def updateAllMsgLists():
       for searcher in MsgSearch._searcherList: #We could also probably get from all active groups instead of the searcher list
         searcher.GenerateCache()
+        
+    def postCivReminder():
+      civGroup.handler.write("Don't forget to do your civ turn!")
     
     server = Server(('', Network.SERVER_CONNECTION_PORT), ServerHandler)
     
@@ -297,6 +304,7 @@ def main():
     updaterWebsite    = Events.DailyUpdater( time(4,58), Website.securityPurge) #Just do this seperately
     earlyMorningFacts = Events.DailyUpdater( time(3, 0), postEarlyMorningFact)
     monthlyMsgRefresh = Events.WeeklyUpdater(time(5,10), Events.WEEKDAY.SATURDAY, updateAllMsgLists, unitDifference = 4) #Once a month
+    dailyCivReminder  = Events.DailyUpdater( time(15,0), postCivReminder)
     
     log.info("========== BEGINNING SERVER RECEIVING ==========")
     try:
